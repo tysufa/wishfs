@@ -1,3 +1,21 @@
+## Makefile — documentation
+## Usage:
+##   make            # builds kernel, ouichefs, disks and share
+##   make kernel     # builds the Linux kernel in the bundled tree
+##   make ouichefs   # builds the ouichefs userspace module (depends on kernel)
+##   make clean      # clean kernel build and remove generated images
+##
+## Important variables (can be overridden on the command line):
+##   nproc       - number of parallel jobs (defaults to output of `nproc`)
+##   kdir        - path to the Linux kernel source tree
+##   ouichefsdir - path to the ouichefs userspace tree
+##   test_disk   - filename for generated test filesystem image
+##   mkfs        - path to the ouichefs mkfs binary used to format $(test_disk)
+##
+## Typical examples:
+##   make                # build everything using defaults
+##   make nproc=8 kernel # build kernel with 8 parallel jobs
+##
 nproc=$(shell nproc)
 
 kdir=./linux-6.5.7
