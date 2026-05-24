@@ -54,3 +54,5 @@ dkms.conf
 
 # Other
 mkfs/test.img
+deps
+deps/**
