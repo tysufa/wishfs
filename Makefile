@@ -58,7 +58,7 @@ $(share):
 	mkdir -p $(share)
 
 $(mkfs):
-	$(MAKE) -C $(ouichefs)/mkfs
+	$(MAKE) -C $(ouichefsdir)/mkfs
 
 $(boot_disk):
 	wget https://etyloppihacilem.com/collection/pnl-tp-2021.img.xz
