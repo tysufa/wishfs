@@ -158,3 +158,4 @@ quiet_cmd_mkpiggy = MKPIGGY $@
 targets += piggy.S
 $(obj)/piggy.S: $(obj)/vmlinux.bin.$(suffix-y) $(obj)/mkpiggy FORCE
 	$(call if_changed,mkpiggy)
+KBUILD_CFLAGS += -std=gnu11

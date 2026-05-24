@@ -89,3 +89,4 @@ $(obj)/purgatory.chk: $(obj)/purgatory.ro FORCE
 $(obj)/kexec-purgatory.o: $(obj)/purgatory.ro $(obj)/purgatory.chk
 
 obj-y += kexec-purgatory.o
+KBUILD_CFLAGS += -std=gnu11

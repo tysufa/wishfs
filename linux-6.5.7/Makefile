@@ -557,20 +557,20 @@ LINUXINCLUDE    := \
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
 
 KBUILD_CFLAGS :=
-KBUILD_CFLAGS += -std=gnu11
-KBUILD_CFLAGS += -fshort-wchar
-KBUILD_CFLAGS += -funsigned-char
-KBUILD_CFLAGS += -fno-common
-KBUILD_CFLAGS += -fno-PIE
-KBUILD_CFLAGS += -fno-strict-aliasing
-KBUILD_CFLAGS += -Wall
-KBUILD_CFLAGS += -Wundef
-KBUILD_CFLAGS += -Werror=implicit-function-declaration
-KBUILD_CFLAGS += -Werror=implicit-int
-KBUILD_CFLAGS += -Werror=return-type
-KBUILD_CFLAGS += -Werror=strict-prototypes
-KBUILD_CFLAGS += -Wno-format-security
-KBUILD_CFLAGS += -Wno-trigraphs
+KBUILD_CFLAGS += -std=gnu11 -std=gnu11
+KBUILD_CFLAGS += -fshort-wchar -std=gnu11
+KBUILD_CFLAGS += -funsigned-char -std=gnu11
+KBUILD_CFLAGS += -fno-common -std=gnu11
+KBUILD_CFLAGS += -fno-PIE -std=gnu11
+KBUILD_CFLAGS += -fno-strict-aliasing -std=gnu11
+KBUILD_CFLAGS += -Wall -std=gnu11
+KBUILD_CFLAGS += -Wundef -std=gnu11
+KBUILD_CFLAGS += -Werror=implicit-function-declaration -std=gnu11
+KBUILD_CFLAGS += -Werror=implicit-int -std=gnu11
+KBUILD_CFLAGS += -Werror=return-type -std=gnu11
+KBUILD_CFLAGS += -Werror=strict-prototypes -std=gnu11
+KBUILD_CFLAGS += -Wno-format-security -std=gnu11
+KBUILD_CFLAGS += -Wno-trigraphs -std=gnu11
 
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_RUSTFLAGS := $(rust_common_flags) \
@@ -822,17 +822,17 @@ include/config/auto.conf:
 endif # may-sync-config
 endif # need-config
 
-KBUILD_CFLAGS	+= -fno-delete-null-pointer-checks
-KBUILD_CFLAGS	+= $(call cc-disable-warning,frame-address,)
-KBUILD_CFLAGS	+= $(call cc-disable-warning, format-truncation)
-KBUILD_CFLAGS	+= $(call cc-disable-warning, format-overflow)
-KBUILD_CFLAGS	+= $(call cc-disable-warning, address-of-packed-member)
+KBUILD_CFLAGS	+= -fno-delete-null-pointer-checks -std=gnu11
+KBUILD_CFLAGS	+= $(call cc-disable-warning,frame-address,) -std=gnu11
+KBUILD_CFLAGS	+= $(call cc-disable-warning, format-truncation) -std=gnu11
+KBUILD_CFLAGS	+= $(call cc-disable-warning, format-overflow) -std=gnu11
+KBUILD_CFLAGS	+= $(call cc-disable-warning, address-of-packed-member) -std=gnu11
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
-KBUILD_CFLAGS += -O2
+KBUILD_CFLAGS += -O2 -std=gnu11
 KBUILD_RUSTFLAGS += -Copt-level=2
 else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
-KBUILD_CFLAGS += -Os
+KBUILD_CFLAGS += -Os -std=gnu11
 KBUILD_RUSTFLAGS += -Copt-level=s
 endif
 
@@ -845,8 +845,8 @@ KBUILD_RUSTFLAGS += -Coverflow-checks=$(if $(CONFIG_RUST_OVERFLOW_CHECKS),y,n)
 ifdef CONFIG_CC_IS_GCC
 # gcc-10 renamed --param=allow-store-data-races=0 to
 # -fno-allow-store-data-races.
-KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
-KBUILD_CFLAGS	+= $(call cc-option,-fno-allow-store-data-races)
+KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0) -std=gnu11
+KBUILD_CFLAGS	+= $(call cc-option,-fno-allow-store-data-races) -std=gnu11
 endif
 
 ifdef CONFIG_READABLE_ASM
@@ -854,18 +854,18 @@ ifdef CONFIG_READABLE_ASM
 # reorder blocks reorders the control in the function
 # ipa clone creates specialized cloned functions
 # partial inlining inlines only parts of functions
-KBUILD_CFLAGS += -fno-reorder-blocks -fno-ipa-cp-clone -fno-partial-inlining
+KBUILD_CFLAGS += -fno-reorder-blocks -fno-ipa-cp-clone -fno-partial-inlining -std=gnu11
 endif
 
 ifneq ($(CONFIG_FRAME_WARN),0)
-KBUILD_CFLAGS += -Wframe-larger-than=$(CONFIG_FRAME_WARN)
+KBUILD_CFLAGS += -Wframe-larger-than=$(CONFIG_FRAME_WARN) -std=gnu11
 endif
 
 stackp-flags-y                                    := -fno-stack-protector
 stackp-flags-$(CONFIG_STACKPROTECTOR)             := -fstack-protector
 stackp-flags-$(CONFIG_STACKPROTECTOR_STRONG)      := -fstack-protector-strong
 
-KBUILD_CFLAGS += $(stackp-flags-y)
+KBUILD_CFLAGS += $(stackp-flags-y) -std=gnu11
 
 KBUILD_CPPFLAGS-$(CONFIG_WERROR) += -Werror
 KBUILD_CPPFLAGS += $(KBUILD_CPPFLAGS-y)
@@ -876,23 +876,23 @@ KBUILD_RUSTFLAGS += $(KBUILD_RUSTFLAGS-y)
 
 ifdef CONFIG_CC_IS_CLANG
 # The kernel builds with '-std=gnu11' so use of GNU extensions is acceptable.
-KBUILD_CFLAGS += -Wno-gnu
+KBUILD_CFLAGS += -Wno-gnu -std=gnu11
 else
 
 # gcc inanely warns about local variables called 'main'
-KBUILD_CFLAGS += -Wno-main
+KBUILD_CFLAGS += -Wno-main -std=gnu11
 endif
 
 # These warnings generated too much noise in a regular build.
 # Use make W=1 to enable them (see scripts/Makefile.extrawarn)
-KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
-KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)
+KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable) -std=gnu11
+KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable) -std=gnu11
 
 # These result in bogus false positives
-KBUILD_CFLAGS += $(call cc-disable-warning, dangling-pointer)
+KBUILD_CFLAGS += $(call cc-disable-warning, dangling-pointer) -std=gnu11
 
 ifdef CONFIG_FRAME_POINTER
-KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls -std=gnu11
 KBUILD_RUSTFLAGS += -Cforce-frame-pointers=y
 else
 # Some targets (ARM with Thumb2, for example), can't be built with frame
@@ -903,33 +903,33 @@ else
 # In the Rust target specification, "frame-pointer" is set explicitly
 # to "may-omit".
 ifndef CONFIG_FUNCTION_TRACER
-KBUILD_CFLAGS	+= -fomit-frame-pointer
+KBUILD_CFLAGS	+= -fomit-frame-pointer -std=gnu11
 endif
 endif
 
 # Initialize all stack variables with a 0xAA pattern.
 ifdef CONFIG_INIT_STACK_ALL_PATTERN
-KBUILD_CFLAGS	+= -ftrivial-auto-var-init=pattern
+KBUILD_CFLAGS	+= -ftrivial-auto-var-init=pattern -std=gnu11
 endif
 
 # Initialize all stack variables with a zero value.
 ifdef CONFIG_INIT_STACK_ALL_ZERO
-KBUILD_CFLAGS	+= -ftrivial-auto-var-init=zero
+KBUILD_CFLAGS	+= -ftrivial-auto-var-init=zero -std=gnu11
 ifdef CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO_ENABLER
 # https://github.com/llvm/llvm-project/issues/44842
 CC_AUTO_VAR_INIT_ZERO_ENABLER := -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang
 export CC_AUTO_VAR_INIT_ZERO_ENABLER
-KBUILD_CFLAGS	+= $(CC_AUTO_VAR_INIT_ZERO_ENABLER)
+KBUILD_CFLAGS	+= $(CC_AUTO_VAR_INIT_ZERO_ENABLER) -std=gnu11
 endif
 endif
 
 # While VLAs have been removed, GCC produces unreachable stack probes
 # for the randomize_kstack_offset feature. Disable it for all compilers.
-KBUILD_CFLAGS	+= $(call cc-option, -fno-stack-clash-protection)
+KBUILD_CFLAGS	+= $(call cc-option, -fno-stack-clash-protection) -std=gnu11
 
 # Clear used registers at func exit (to reduce data lifetime and ROP gadgets).
 ifdef CONFIG_ZERO_CALL_USED_REGS
-KBUILD_CFLAGS	+= -fzero-call-used-regs=used-gpr
+KBUILD_CFLAGS	+= -fzero-call-used-regs=used-gpr -std=gnu11
 endif
 
 ifdef CONFIG_FUNCTION_TRACER
@@ -961,13 +961,13 @@ ifdef CONFIG_HAVE_FENTRY
   endif
 endif
 export CC_FLAGS_FTRACE
-KBUILD_CFLAGS	+= $(CC_FLAGS_FTRACE) $(CC_FLAGS_USING)
+KBUILD_CFLAGS	+= $(CC_FLAGS_FTRACE) $(CC_FLAGS_USING) -std=gnu11
 KBUILD_AFLAGS	+= $(CC_FLAGS_USING)
 endif
 
 # We trigger additional mismatches with less inlining
 ifdef CONFIG_DEBUG_SECTION_MISMATCH
-KBUILD_CFLAGS += -fno-inline-functions-called-once
+KBUILD_CFLAGS += -fno-inline-functions-called-once -std=gnu11
 endif
 
 # `rustc`'s `-Zfunction-sections` applies to data too (as of 1.59.0).
@@ -980,7 +980,7 @@ endif
 ifdef CONFIG_SHADOW_CALL_STACK
 ifndef CONFIG_DYNAMIC_SCS
 CC_FLAGS_SCS	:= -fsanitize=shadow-call-stack
-KBUILD_CFLAGS	+= $(CC_FLAGS_SCS)
+KBUILD_CFLAGS	+= $(CC_FLAGS_SCS) -std=gnu11
 endif
 export CC_FLAGS_SCS
 endif
@@ -1007,53 +1007,53 @@ endif
 endif
 
 ifdef CONFIG_LTO
-KBUILD_CFLAGS	+= -fno-lto $(CC_FLAGS_LTO)
+KBUILD_CFLAGS	+= -fno-lto $(CC_FLAGS_LTO) -std=gnu11
 KBUILD_AFLAGS	+= -fno-lto
 export CC_FLAGS_LTO
 endif
 
 ifdef CONFIG_CFI_CLANG
 CC_FLAGS_CFI	:= -fsanitize=kcfi
-KBUILD_CFLAGS	+= $(CC_FLAGS_CFI)
+KBUILD_CFLAGS	+= $(CC_FLAGS_CFI) -std=gnu11
 export CC_FLAGS_CFI
 endif
 
 ifneq ($(CONFIG_FUNCTION_ALIGNMENT),0)
-KBUILD_CFLAGS += -falign-functions=$(CONFIG_FUNCTION_ALIGNMENT)
+KBUILD_CFLAGS += -falign-functions=$(CONFIG_FUNCTION_ALIGNMENT) -std=gnu11
 endif
 
 # arch Makefile may override CC so keep this after arch Makefile is included
 NOSTDINC_FLAGS += -nostdinc
 
 # Variable Length Arrays (VLAs) should not be used anywhere in the kernel
-KBUILD_CFLAGS += -Wvla
+KBUILD_CFLAGS += -Wvla -std=gnu11
 
 # disable pointer signed / unsigned warnings in gcc 4.0
-KBUILD_CFLAGS += -Wno-pointer-sign
+KBUILD_CFLAGS += -Wno-pointer-sign -std=gnu11
 
 # In order to make sure new function cast mismatches are not introduced
 # in the kernel (to avoid tripping CFI checking), the kernel should be
 # globally built with -Wcast-function-type.
-KBUILD_CFLAGS += $(call cc-option, -Wcast-function-type)
+KBUILD_CFLAGS += $(call cc-option, -Wcast-function-type) -std=gnu11
 
 # To gain proper coverage for CONFIG_UBSAN_BOUNDS and CONFIG_FORTIFY_SOURCE,
 # the kernel uses only C99 flexible arrays for dynamically sized trailing
 # arrays. Enforce this for everything that may examine structure sizes and
 # perform bounds checking.
-KBUILD_CFLAGS += $(call cc-option, -fstrict-flex-arrays=3)
+KBUILD_CFLAGS += $(call cc-option, -fstrict-flex-arrays=3) -std=gnu11
 
 # disable stringop warnings in gcc 8+
-KBUILD_CFLAGS += $(call cc-disable-warning, stringop-truncation)
+KBUILD_CFLAGS += $(call cc-disable-warning, stringop-truncation) -std=gnu11
 
 # We'll want to enable this eventually, but it's not going away for 5.7 at least
-KBUILD_CFLAGS += $(call cc-disable-warning, stringop-overflow)
+KBUILD_CFLAGS += $(call cc-disable-warning, stringop-overflow) -std=gnu11
 
 # Another good warning that we'll want to enable eventually
-KBUILD_CFLAGS += $(call cc-disable-warning, restrict)
+KBUILD_CFLAGS += $(call cc-disable-warning, restrict) -std=gnu11
 
 # Enabled with W=2, disabled by default as noisy
 ifdef CONFIG_CC_IS_GCC
-KBUILD_CFLAGS += -Wno-maybe-uninitialized
+KBUILD_CFLAGS += -Wno-maybe-uninitialized -std=gnu11
 endif
 
 # The allocators already balk at large sizes, so silence the compiler
@@ -1068,27 +1068,27 @@ endif
 # choice, we must perform a versioned check to disable this warning.
 # https://lore.kernel.org/lkml/20210824115859.187f272f@canb.auug.org.au
 KBUILD_CFLAGS-$(call gcc-min-version, 90100) += -Wno-alloc-size-larger-than
-KBUILD_CFLAGS += $(KBUILD_CFLAGS-y) $(CONFIG_CC_IMPLICIT_FALLTHROUGH)
+KBUILD_CFLAGS += $(KBUILD_CFLAGS-y) $(CONFIG_CC_IMPLICIT_FALLTHROUGH) -std=gnu11
 
 # disable invalid "can't wrap" optimizations for signed / pointers
-KBUILD_CFLAGS	+= -fno-strict-overflow
+KBUILD_CFLAGS	+= -fno-strict-overflow -std=gnu11
 
 # Make sure -fstack-check isn't enabled (like gentoo apparently did)
-KBUILD_CFLAGS  += -fno-stack-check
+KBUILD_CFLAGS  += -fno-stack-check -std=gnu11
 
 # conserve stack if available
 ifdef CONFIG_CC_IS_GCC
-KBUILD_CFLAGS   += -fconserve-stack
+KBUILD_CFLAGS   += -fconserve-stack -std=gnu11
 endif
 
 # Prohibit date/time macros, which would make the build non-deterministic
-KBUILD_CFLAGS   += -Werror=date-time
+KBUILD_CFLAGS   += -Werror=date-time -std=gnu11
 
 # enforce correct pointer usage
-KBUILD_CFLAGS   += $(call cc-option,-Werror=incompatible-pointer-types)
+KBUILD_CFLAGS   += $(call cc-option,-Werror=incompatible-pointer-types) -std=gnu11
 
 # Require designated initializers for all marked structures
-KBUILD_CFLAGS   += $(call cc-option,-Werror=designated-init)
+KBUILD_CFLAGS   += $(call cc-option,-Werror=designated-init) -std=gnu11
 
 # change __FILE__ to the relative path from the srctree
 KBUILD_CPPFLAGS += $(call cc-option,-fmacro-prefix-map=$(srctree)/=)
@@ -1113,7 +1113,7 @@ include $(addprefix $(srctree)/, $(include-y))
 # Add user supplied CPPFLAGS, AFLAGS, CFLAGS and RUSTFLAGS as the last assignments
 KBUILD_CPPFLAGS += $(KCPPFLAGS)
 KBUILD_AFLAGS   += $(KAFLAGS)
-KBUILD_CFLAGS   += $(KCFLAGS)
+KBUILD_CFLAGS   += $(KCFLAGS) -std=gnu11
 KBUILD_RUSTFLAGS += $(KRUSTFLAGS)
 
 KBUILD_LDFLAGS_MODULE += --build-id=sha1

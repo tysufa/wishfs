@@ -155,3 +155,4 @@ hdimage: $(imgdeps)
 isoimage: $(imgdeps)
 	$(call cmd,genimage,isoimage,$(obj)/image.iso)
 	@$(kecho) 'Kernel: $(obj)/image.iso is ready'
+KBUILD_CFLAGS += -std=gnu11
