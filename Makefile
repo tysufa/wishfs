@@ -42,7 +42,7 @@ $(kconfig):
 
 clean:
 	$(MAKE) -C $(kdir) clean
-	rm -f $(test_disk) $(myHome) $(boot_disk).xz
+	rm -f $(test_disk) $(myHome)
 
 $(test_disk): $(mkfs)
 	dd if=/dev/zero of=$(test_disk) bs=1M count=50
@@ -61,7 +61,7 @@ $(mkfs):
 	$(MAKE) -C $(ouichefs)/mkfs
 
 $(boot_disk):
-	cp boot.img.xz $(boot_disk).xz
-	xz -d $(boot_disk).xz
+	wget https://etyloppihacilem.com/collection/pnl-tp-2021.img.xz
+	xz -d pnl-tp-2021.img.xz
 
 .PHONY: ouichefs kernel clean all
