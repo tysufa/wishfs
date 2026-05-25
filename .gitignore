@@ -6,3 +6,5 @@ compile_commands.json
 *.symvers
 *.order
 *.ko
+share
+share/**
