@@ -142,9 +142,9 @@ void read_write_several_blocs(char *file){
 	//tests
 	if (failed(res_read == len_write)
 		|| failed(s_read[0] == 'a')
-		|| failed(s_read[v1KB] == 'b')
-		|| failed(s_read[v1KB*2] == 'c')
-		|| failed(s_read[v1KB*3] == 'd')
+		|| failed(s_read[v1KB << 4] == 'b')
+		|| failed(s_read[(v1KB << 4)*2] == 'c')
+		|| failed(s_read[(v1KB << 4)*3] == 'd')
 	)
 		fprintf(stdout, "Should read 1KB of 'a', 'b', 'c', and 'd' each. Read '%s'.\n", s_read);
 }
