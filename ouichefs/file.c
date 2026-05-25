@@ -279,6 +279,9 @@ ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,
 		if (copy_to_user(buffer, buffer_block->b_data + offset_in_block,
 				 bytes_to_copy)) {
 			pr_err("Impossible d'afficher le contenu du block\n");
+			brelse(buffer_block);
+			brelse(buffer_head_index);
+			return 0;
 		}
 
 		brelse(buffer_block);
@@ -328,15 +331,15 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	physical_index =
 		sb_bread(sb, fsiinfo->index_block); // on récupère l'index
 
-	// on caste les informations du block d'index dans la struct adapté
-	struct ouichefs_file_index_block *index_block =
-		(struct ouichefs_file_index_block *)physical_index->b_data;
-
 	if (!physical_index) {
 		pr_err("ouichefs: Impossible de lire le bloc d'index %u\n",
 		       fsiinfo->index_block);
 		return 0;
 	}
+
+	// on caste les informations du block d'index dans la struct adapté
+	struct ouichefs_file_index_block *index_block =
+		(struct ouichefs_file_index_block *)physical_index->b_data;
 
 	if (file->f_flags & O_APPEND) {
 		*ppos = file->f_inode->i_size;
@@ -363,7 +366,6 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 			index_block->blocks[logical_block_nb] =
 				cpu_to_le32(physical_block_number);
 			mark_buffer_dirty(physical_index);
-			sync_dirty_buffer(physical_index);
 		}
 
 		physical_block = sb_bread(sb, physical_block_number);
@@ -381,14 +383,14 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		}
 
 		mark_buffer_dirty(physical_block);
-		sync_dirty_buffer(physical_block);
-
+		write_dirty_buffer(physical_block, REQ_OP_WRITE); // async write back
 		brelse(physical_block);
 
 		*ppos += bytes_to_write;
 		bytes_written += bytes_to_write;
 		count -= bytes_to_write;
 	}
+  write_dirty_buffer(physical_index, REQ_OP_WRITE);
 	brelse(physical_index);
 
 	if (*ppos > file->f_inode->i_size) {
