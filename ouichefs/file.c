@@ -373,31 +373,33 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		if (!physical_block) {
 			pr_err("ouichefs: Impossible de lire le bloc logique %u\n",
 			       index_block->blocks[logical_block_nb]);
-			brelse(physical_index);
-			return 0;
+      goto release_physical_index;
 		}
 
 		if (copy_from_user(physical_block->b_data + offset_in_block,
 				   buffer + bytes_written, bytes_to_write)) {
 			pr_err("Erreur de copie depuis l'utilisateur vers le block\n");
+      brelse(physical_block);
+      goto release_physical_index;
 		}
 
 		mark_buffer_dirty(physical_block);
-		write_dirty_buffer(physical_block, REQ_OP_WRITE); // async write back
+		write_dirty_buffer(physical_block, REQ_OP_WRITE); // async write
 		brelse(physical_block);
 
 		*ppos += bytes_to_write;
 		bytes_written += bytes_to_write;
 		count -= bytes_to_write;
 	}
-  write_dirty_buffer(physical_index, REQ_OP_WRITE);
-	brelse(physical_index);
 
 	if (*ppos > file->f_inode->i_size) {
 		file->f_inode->i_size = *ppos;
 		mark_inode_dirty(file->f_inode);
 	}
 
+release_physical_index: // because some bytes might already be written
+  write_dirty_buffer(physical_index, REQ_OP_WRITE);
+	brelse(physical_index);
 	return bytes_written;
 }
 
