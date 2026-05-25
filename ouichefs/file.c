@@ -5,6 +5,7 @@
  * Copyright (C) 2018 Redha Gouicem <redha.gouicem@lip6.fr>
  */
 
+#include "linux/types.h"
 #define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/module.h>
@@ -175,7 +176,8 @@ static int ouichefs_write_end(struct file *file, struct address_space *mapping,
 
 			for (i = inode->i_blocks - 1; i < nr_blocks_old - 1;
 			     i++) {
-				put_block(OUICHEFS_SB(sb), le32_to_cpu(index->blocks[i]));
+				put_block(OUICHEFS_SB(sb),
+					  le32_to_cpu(index->blocks[i]));
 				index->blocks[i] = 0;
 			}
 			mark_buffer_dirty(bh_index);
@@ -227,11 +229,184 @@ static int ouichefs_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,
+		      loff_t *ppos)
+{
+	struct inode *inode = file->f_inode;
+	struct super_block *sb = inode->i_sb;
+	struct ouichefs_inode_info *fsiinfo = OUICHEFS_INODE(inode);
+	struct buffer_head *buffer_head_index;
+	struct buffer_head *buffer_block;
+
+	uint32_t bytes_read = 0;
+
+	if (*ppos > inode->i_size)
+		return 0;
+
+	if (*ppos + count > inode->i_size)
+		count = inode->i_size - *ppos;
+
+	while (count > 0) {
+		uint32_t logical_block = *ppos / OUICHEFS_BLOCK_SIZE;
+		uint32_t offset_in_block = *ppos % OUICHEFS_BLOCK_SIZE;
+		uint32_t bytes_to_copy =
+			min(count, (size_t)4096 - offset_in_block);
+
+		buffer_head_index = sb_bread(
+			sb, fsiinfo->index_block); // on récupère l'index
+
+		if (!buffer_head_index) {
+			pr_err("ouichefs: Impossible de lire le bloc d'index %u\n",
+			       fsiinfo->index_block);
+			return 0;
+		}
+
+		// on caste les informations du block d'index dans la struct adapté
+		struct ouichefs_file_index_block *index_block =
+			(struct ouichefs_file_index_block *)
+				buffer_head_index->b_data;
+
+		// on récupère le block qu'on veut lire
+		buffer_block = sb_bread(sb, index_block->blocks[logical_block]);
+
+		if (!buffer_block) {
+			pr_err("ouichefs: Impossible de lire le bloc logique %u\n",
+			       index_block->blocks[logical_block]);
+			brelse(buffer_head_index);
+			return 0;
+		}
+
+		if (copy_to_user(buffer, buffer_block->b_data + offset_in_block,
+				 bytes_to_copy)) {
+			pr_err("Impossible d'afficher le contenu du block\n");
+		}
+
+		brelse(buffer_block);
+		brelse(buffer_head_index);
+
+		count -= bytes_to_copy;
+		*ppos += bytes_to_copy;
+		bytes_read += bytes_to_copy;
+	}
+
+	return bytes_read;
+}
+
+ssize_t ouichefs_write(struct file *file, const char __user *buffer,
+		       size_t count, loff_t *ppos)
+{
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(file->f_inode->i_sb);
+
+	struct super_block *sb = file->f_inode->i_sb;
+	struct ouichefs_inode_info *fsiinfo = OUICHEFS_INODE(file->f_inode);
+
+	// struct ouichefs_sb_info *sbinfo = OUICHEFS_SB(sb);
+
+	struct buffer_head *physical_index;
+	struct buffer_head *physical_block;
+
+	uint32_t nr_allocs = 0;
+	uint32_t bytes_written = 0;
+	uint32_t bytes_to_write = 0;
+
+	/* Check if the write can be completed (enough space?) */
+	if (*ppos + count > OUICHEFS_MAX_FILESIZE)
+		return -ENOSPC;
+
+	nr_allocs =
+		max(*ppos + count, (unsigned long long)file->f_inode->i_size) /
+		OUICHEFS_BLOCK_SIZE;
+
+	if (nr_allocs > file->f_inode->i_blocks - 1)
+		nr_allocs -= file->f_inode->i_blocks - 1;
+	else
+		nr_allocs = 0;
+
+	if (nr_allocs > sbi->nr_free_blocks)
+		return -ENOSPC;
+
+	physical_index =
+		sb_bread(sb, fsiinfo->index_block); // on récupère l'index
+
+	// on caste les informations du block d'index dans la struct adapté
+	struct ouichefs_file_index_block *index_block =
+		(struct ouichefs_file_index_block *)physical_index->b_data;
+
+	if (!physical_index) {
+		pr_err("ouichefs: Impossible de lire le bloc d'index %u\n",
+		       fsiinfo->index_block);
+		return 0;
+	}
+
+	if (file->f_flags & O_APPEND) {
+		*ppos = file->f_inode->i_size;
+	}
+
+	while (count > 0) {
+		uint32_t logical_block_nb = *ppos / OUICHEFS_BLOCK_SIZE;
+		uint32_t offset_in_block = *ppos % OUICHEFS_BLOCK_SIZE;
+
+		bytes_to_write = min(count, (size_t)OUICHEFS_BLOCK_SIZE -
+						    offset_in_block);
+
+		// on récupère le block qu'on veut lire
+		uint32_t physical_block_number =
+			index_block->blocks[logical_block_nb];
+
+		if (physical_block_number == 0) {
+			pr_err("pas de blocks disponibles pour l'écriture\n");
+
+			physical_block_number = get_free_block(sbi);
+			if (!physical_block_number) {
+				brelse(physical_index);
+				return -ENOSPC;
+			}
+			index_block->blocks[logical_block_nb] =
+				cpu_to_le32(physical_block_number);
+			mark_buffer_dirty(physical_index);
+			sync_dirty_buffer(physical_index);
+		}
+
+		physical_block = sb_bread(sb, physical_block_number);
+
+		if (!physical_block) {
+			pr_err("ouichefs: Impossible de lire le bloc logique %u\n",
+			       index_block->blocks[logical_block_nb]);
+			brelse(physical_index);
+			return 0;
+		}
+
+		if (copy_from_user(physical_block->b_data + offset_in_block,
+				   buffer + bytes_written, bytes_to_write)) {
+			pr_err("Erreur de copie depuis l'utilisateur vers le block\n");
+		}
+
+		mark_buffer_dirty(physical_block);
+		sync_dirty_buffer(physical_block);
+
+		brelse(physical_block);
+		brelse(physical_index);
+
+		*ppos += bytes_to_write;
+		bytes_written += bytes_to_write;
+		count -= bytes_to_write;
+	}
+
+	if (*ppos > file->f_inode->i_size) {
+		file->f_inode->i_size = *ppos;
+		mark_inode_dirty(file->f_inode);
+	}
+
+	return bytes_written;
+}
+
 const struct file_operations ouichefs_file_ops = {
 	.owner = THIS_MODULE,
 	.open = ouichefs_open,
+	.read = ouichefs_read,
+	.write = ouichefs_write,
 	.llseek = generic_file_llseek,
-	.read_iter = generic_file_read_iter,
-	.write_iter = generic_file_write_iter,
+	// .read_iter = generic_file_read_iter,
+	// .write_iter = generic_file_write_iter,
 	.fsync = generic_file_fsync,
 };
