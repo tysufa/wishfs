@@ -33,6 +33,7 @@ all: ouichefs $(boot_disk) $(home_disk) $(share) $(test_disk)
 
 ouichefs: kernel $(test_disk)
 	$(MAKE) -C $(ouichefsdir) KERNELDIR=../$(kdir)
+	cp $(ouichefsdir)/ouichefs.ko $(share)
 
 kernel: $(kconfig)
 	time $(MAKE) -C $(kdir) -j$(nproc)
