@@ -1,3 +1,7 @@
 myHome.img
 pnl-tp-2021.img
 test.img
+compile_commands.json
+*.cmd
+*.symvers
+*.order
