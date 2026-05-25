@@ -65,7 +65,7 @@ $(boot_disk):
 	wget https://etyloppihacilem.com/collection/pnl-tp-2021.img.xz
 	xz -d pnl-tp-2021.img.xz
 
-compile_commands:
-	python3 $(kdir)/scripts/clang-tools/gen_compile_commands.py -d $(ouichefsdir)
+compile_commands: clean
+	bear -- $(MAKE)
 
 .PHONY: ouichefs kernel clean all compile_commands
