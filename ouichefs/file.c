@@ -246,20 +246,20 @@ ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,
 	if (*ppos + count > inode->i_size)
 		count = inode->i_size - *ppos;
 
+	buffer_head_index =
+		sb_bread(sb, fsiinfo->index_block); // on récupère l'index
+
+	if (!buffer_head_index) {
+		pr_err("ouichefs: Impossible de lire le bloc d'index %u\n",
+		       fsiinfo->index_block);
+		return 0;
+	}
+
 	while (count > 0) {
 		uint32_t logical_block = *ppos / OUICHEFS_BLOCK_SIZE;
 		uint32_t offset_in_block = *ppos % OUICHEFS_BLOCK_SIZE;
 		uint32_t bytes_to_copy =
 			min(count, (size_t)4096 - offset_in_block);
-
-		buffer_head_index = sb_bread(
-			sb, fsiinfo->index_block); // on récupère l'index
-
-		if (!buffer_head_index) {
-			pr_err("ouichefs: Impossible de lire le bloc d'index %u\n",
-			       fsiinfo->index_block);
-			return 0;
-		}
 
 		// on caste les informations du block d'index dans la struct adapté
 		struct ouichefs_file_index_block *index_block =
@@ -282,12 +282,12 @@ ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,
 		}
 
 		brelse(buffer_block);
-		brelse(buffer_head_index);
 
 		count -= bytes_to_copy;
 		*ppos += bytes_to_copy;
 		bytes_read += bytes_to_copy;
 	}
+	brelse(buffer_head_index);
 
 	return bytes_read;
 }
@@ -354,10 +354,9 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 			index_block->blocks[logical_block_nb];
 
 		if (physical_block_number == 0) {
-			pr_err("pas de blocks disponibles pour l'écriture\n");
-
 			physical_block_number = get_free_block(sbi);
 			if (!physical_block_number) {
+				pr_err("pas de blocks disponibles pour l'écriture\n");
 				brelse(physical_index);
 				return -ENOSPC;
 			}
@@ -385,12 +384,12 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		sync_dirty_buffer(physical_block);
 
 		brelse(physical_block);
-		brelse(physical_index);
 
 		*ppos += bytes_to_write;
 		bytes_written += bytes_to_write;
 		count -= bytes_to_write;
 	}
+	brelse(physical_index);
 
 	if (*ppos > file->f_inode->i_size) {
 		file->f_inode->i_size = *ppos;
