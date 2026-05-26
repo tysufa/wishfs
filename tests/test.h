@@ -21,6 +21,8 @@
 #define v1KB (1 << 10)
 #define v1MB (1 << 20)
 
+#define PATH "/mnt/test_mnt/test_"
+
 void manage_error(int no, const char *fname, const char *fdescr){
 	if (no < 0){
 		const char *err_descr = strerror(errno);
@@ -116,34 +118,3 @@ void run_test(void (*func)(const char *), char *path){
 	create_file(path);
 	func(path);
 }
-
-//written tests
-/** Writes then reads some Bytes. Tries to read larger than file size. */
-void read_write_simple(const char *file);
-
-/** Writes then reads 16KB. */
-void read_write_several_blocs(const char *file);
-
-/** Writes >4MB, more than max size. */
-void write_too_big(const char* file);
-
-/** Write in the middle of a 24B file. Then read whole file. */
-void write_middle_simple(const char* file);
-
-/** Write in the middle of a 12KB file. Then read whole file. */
-void write_middle_several_blocs(const char* file);
-
-/** */
-void write_at_end_append(const char* file);
-
-/** */
-void write_at_end_no_append(const char* file);
-
-/** */
-void write_over_end(const char *file);
-
-/** */
-void write_after_end(const char *file);
-
-/** */
-void read_trunc_several_blocs(const char *file);

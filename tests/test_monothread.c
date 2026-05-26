@@ -1,10 +1,7 @@
-#include <fcntl.h> //open
 #include <unistd.h> //read, llseek
 #include <string.h> //strlen
 #include <stdio.h> //fprintf, stdout
 #include <stdlib.h> //exit
-
-#include <linux/ioctl.h> //ioctl
 
 #include "test.h"
 
@@ -40,7 +37,7 @@ void read_write_simple(const char *file){
 		fprintf(stdout, "Should read '%s'. Read: '%s'.\n", s_write, s_read);
 }
 
-void read_write_several_blocs(const char *file){
+void read_write_several_blocks(const char *file){
 	fprintf(stdout, "--- Test read/write on several blocks. ---\n");
 
 	const char *s_write = s4KB("a") s4KB("b") s4KB("c") s4KB("d"); //total 16KB
@@ -131,7 +128,7 @@ void write_middle_simple(const char* file){
 		__compare_file_to(file, s8B("a") s8B("B") s8B("c"));
 }
 
-void write_middle_several_blocs(const char* file){
+void write_middle_several_blocks(const char* file){
 	fprintf(stdout, "--- Test write in the middle of a file, over several blocks. ---\n");
 
 	ssize_t res;
@@ -222,7 +219,7 @@ void write_over_end(const char *file){
 	__compare_file_to(file, s8B("a") s8B("b") s8B("b"));
 }
 
-void write_after_end(const char *file){
+void write_sparse(const char *file){
 	fprintf(stdout, "--- Test creating a hole in a file. ---\n");
 
 	ssize_t res;
@@ -269,7 +266,7 @@ void write_after_end(const char *file){
 	}
 }
 
-void read_trunc_several_blocs(const char *file){
+void read_trunc_several_blocks(const char *file){
 	fprintf(stdout, "--- Test with O_TRUNC option on several blocks. ---\n");
 
 	//initialize file
@@ -288,39 +285,39 @@ void read_trunc_several_blocs(const char *file){
 		fprintf(stdout, "Should read nothing (empty file).\n");
 }
 
-#define path "/mnt/test_mnt/test_"
-
 int main(int argc, char* argv[]){
 
-	//simple read-write
-	run_test(read_write_simple, path "read_write_simple.txt");
+	fprintf(stdout, "=== TEST SUITE monothread ===\n");
 
-	//read 4 blocks of 1KB
-	run_test(read_write_several_blocs, path "read_write_several_blocs.txt");
+	/** Writes then reads some Bytes. Tries to read larger than file size. */
+	run_test(read_write_simple, PATH "read_write_simple.txt");
 
-	//write >4MB in a file
-	run_test(write_too_big, path "write_too_big.txt");
+	/** Writes then reads 16KB. */
+	run_test(read_write_several_blocks, PATH "read_write_several_blocks.txt");
 
-	//read/write in the middle of a file, check offset
-	run_test(write_middle_simple, path "write_middle_simple.txt");
+	/** Writes >4MB, more than max size. */
+	run_test(write_too_big, PATH "write_too_big.txt");
 
-	//describe //TODO
-	run_test(write_middle_several_blocs, path "write_middle_several_blocs.txt");
+	/** Write in the middle of a 24B file. Then read whole file. */
+	run_test(write_middle_simple, PATH "write_middle_simple.txt");
 
-	//describe //TODO
-	run_test(write_at_end_append, path "write_at_end_append.txt");
+	/** Write in the middle of a 12KB file. Then read whole file. */
+	run_test(write_middle_several_blocks, PATH "write_middle_several_blocks.txt");
 
-	//describe //TODO
-	run_test(write_at_end_no_append, path "write_at_end_no_append.txt");
+	/** */
+	run_test(write_at_end_append, PATH "write_at_end_append.txt");
 
-	//describe //TODO
-	run_test(write_over_end, path "write_over_end.txt");
+	/** */
+	run_test(write_at_end_no_append, PATH "write_at_end_no_append.txt");
 
-	//describe //TODO
-	run_test(write_after_end, path "write_after_end.txt");
+	/** */
+	run_test(write_over_end, PATH "write_over_end.txt");
 
-	//describe //TODO
-	run_test(read_trunc_several_blocs, "read_trunc_several_blocs.txt");
+	/** */
+	run_test(write_sparse, PATH "write_sparse.txt");
+
+	/** */
+	run_test(read_trunc_several_blocks, PATH "read_trunc_several_blocks.txt");
 
 	return EXIT_SUCCESS;
 }
