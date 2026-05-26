@@ -14,6 +14,8 @@
 #include <linux/buffer_head.h>
 #include <linux/mpage.h>
 
+#include <linux/ioctl.h> //ou include/uapi/asm-generic/ioctl.h ??
+
 #include "ouichefs.h"
 #include "bitmap.h"
 
@@ -35,30 +37,37 @@ static uint32_t ouichefs_extent_get_block(struct ouichefs_extent *extents,
 
 static long get_extents(struct file *file, long force)
 {
-	struct buffer_head *physical_index;
 	struct super_block *sb = file->f_inode->i_sb;
 	struct ouichefs_inode_info *fsiinfo = OUICHEFS_INODE(file->f_inode);
-	physical_index =
+
+	struct buffer_head *physical_index =
 		sb_bread(sb, fsiinfo->index_block); // on récupère l'index
+
 	if (!physical_index) {
 		pr_err("impossible de lire le bloc d'index %u\n",
 		       fsiinfo->index_block);
 		return -EIO;
 	}
+
 	struct ouichefs_file_index_block *index_block =
 		(struct ouichefs_file_index_block *)physical_index->b_data;
+
+	struct ouichefs_extent *extents = index_block->extents;
 	uint16_t i = 0;
 	uint16_t nb_extents = 0;
-	struct ouichefs_extent *extents = index_block->extents;
+
 	while (nb_extents < OUICHEFS_MAX_EXTENTS &&
 	       extents[nb_extents].count != 0)
 		nb_extents++;
+
 	printk(KERN_INFO "ouichefs: extents for inode %lu: %u %s\n",
 	       file->f_inode->i_ino, nb_extents,
 	       nb_extents > 1 ? "extents" : "extent");
+
 	while (i < OUICHEFS_MAX_EXTENTS && (extents[i].start != 0 || force)) {
 		uint32_t start = extents[i].start;
 		uint32_t count = extents[i].count;
+
 		if (count <= 1)
 			printk(KERN_INFO
 			       "  [%u] start=%u count=%u (extent %u)\n",
@@ -69,6 +78,7 @@ static long get_extents(struct file *file, long force)
 			       i, start, count, start, start + count - 1);
 		i++;
 	}
+
 	brelse(physical_index);
 	return 0;
 }
@@ -326,17 +336,12 @@ release_physical_index: // because some bytes might already be written
 	return bytes_written;
 }
 
-#include <linux/ioctl.h> //ou include/uapi/asm-generic/ioctl.h ??
-
 static long ouichefs_ioctl(struct file *file, unsigned int cmd,
 			   unsigned long arg)
 {
-	// if (_IOC_TYPE(cmd) != OUICHEFS_MAGIC)
-	// 	return -1; //check that is right
-	//autres macros pour la gestion d'erreur, à check
-	//_IOC_DIR( cmd )
-	//_IOC_NR( cmd )
-	//_IOC_SIZE( cmd )
+	if (_IOC_TYPE(cmd) != OUICHEFS_MAGIC)
+		return -EINVAL;
+
 	switch (cmd) {
 	case OUICHEFS_IOC_GET_EXTENTS:
 		return get_extents(file, arg);
