@@ -285,7 +285,7 @@ ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,
 		sb_bread(sb, fsiinfo->index_block); // on récupère l'index
 
 	if (!buffer_head_index) {
-		pr_err("ouichefs: Impossible de lire le bloc d'index %u\n",
+		pr_err("Impossible de lire le bloc d'index %u\n",
 		       fsiinfo->index_block);
 		return -EIO;
 	}
@@ -305,7 +305,7 @@ ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,
 		buffer_block = sb_bread(sb, index_block->blocks[logical_block]);
 
 		if (!buffer_block) {
-			pr_err("ouichefs: Impossible de lire le bloc logique %u\n",
+			pr_err("Impossible de lire le bloc logique %u\n",
 			       index_block->blocks[logical_block]);
 			goto release_head_index;
 		}
@@ -368,7 +368,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		sb_bread(sb, fsiinfo->index_block); // on récupère l'index
 
 	if (!physical_index) {
-		pr_err("ouichefs: Impossible de lire le bloc d'index %u\n",
+		pr_err("Impossible de lire le bloc d'index %u\n",
 		       fsiinfo->index_block);
 		return -EIO;
 	}
@@ -403,7 +403,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		physical_block = sb_bread(sb, physical_block_number);
 
 		if (!physical_block) {
-			pr_err("ouichefs: Impossible de lire le bloc logique %u\n",
+			pr_err("Impossible de lire le bloc logique %u\n",
 			       index_block->blocks[logical_block_nb]);
 			goto release_physical_index;
 		}
