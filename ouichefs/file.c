@@ -5,7 +5,7 @@
  * Copyright (C) 2018 Redha Gouicem <redha.gouicem@lip6.fr>
  */
 
-#include "linux/types.h"
+#include "linux/bitmap.h"
 #define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/module.h>
@@ -125,6 +125,48 @@ static int ouichefs_open(struct inode *inode, struct file *file)
 	}
 
 	return 0;
+}
+
+uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
+				   uint32_t *block)
+{
+	struct ouichefs_sb_info *sbi = sb->s_fs_info;
+
+	unsigned long *bfree_bitmap = sbi->bfree_bitmap;
+
+	unsigned long first_free_bloc_contiguous =
+		find_next_bit(bfree_bitmap, sbi->nr_blocks, 0);
+	unsigned long current_free_block = first_free_bloc_contiguous;
+	unsigned long last_free_bloc = current_free_block;
+	uint32_t block_allocated = 0;
+
+	while (current_free_block != sbi->nr_blocks &&
+	       block_allocated < requested) {
+		current_free_block = find_next_bit(bfree_bitmap, sbi->nr_blocks,
+						   current_free_block + 1);
+
+		if (current_free_block != last_free_bloc + 1) {
+			pr_info("current_free_block : %lu, last_free_bloc : %lu\n",
+				current_free_block, last_free_bloc);
+
+			first_free_bloc_contiguous = current_free_block;
+			block_allocated = 0;
+		} else {
+			block_allocated++;
+		}
+
+		last_free_bloc = current_free_block;
+	}
+
+	pr_info("blocks allocated : %lu - %lu\n", first_free_bloc_contiguous,
+		current_free_block);
+
+	// TODO: rajouter un lock pour pas se faire manger des blocks pendant qu'on clear
+	bitmap_clear(bfree_bitmap, first_free_bloc_contiguous, block_allocated);
+
+	*block = first_free_bloc_contiguous;
+
+	return block_allocated;
 }
 
 ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,

@@ -66,6 +66,12 @@ static inline uint32_t get_free_block(struct ouichefs_sb_info *sbi)
 }
 
 /*
+ * Allocate the requested amount of blocks contiguously in block
+ */
+uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
+				   uint32_t *block);
+
+/*
  * Mark the i-th bit in freemap as free (i.e. 1)
  */
 static inline int put_free_bit(unsigned long *freemap, unsigned long size,
@@ -128,7 +134,8 @@ static inline void copy_bitmap_to_le64(__le64 *dst, unsigned long *src)
 #if BITS_PER_LONG == 64
 		dst[i] = cpu_to_le64(src[i]);
 #elif BITS_PER_LONG == 32
-		dst[i] = cpu_to_le64(((uint64_t)src[(i << 1) + 1] << 32) | src[i << 1]);
+		dst[i] = cpu_to_le64(((uint64_t)src[(i << 1) + 1] << 32) |
+				     src[i << 1]);
 #else
 #error Unsupported long size.
 #endif
