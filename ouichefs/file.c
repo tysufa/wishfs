@@ -8,7 +8,6 @@
 #include "linux/printk.h"
 #include "linux/types.h"
 #define pr_fmt(fmt) "%s:%s: ouichefs:" fmt, KBUILD_MODNAME, __func__
-// TODO: remofe leading ouichefs: from pr_err
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -33,13 +32,14 @@ static long get_extents(struct file *file)
 		(struct ouichefs_file_index_block *)physical_index->b_data;
 	uint16_t i = 0;
 	uint16_t nb_extents = 0;
+	// TODO: ajouter un max d'itération parce qu'on peut remplir au max un index_block
 	while (index_block[nb_extents]->count != 0)
 		nb_extents++;
 	printk("ouichefs: extents for inode %u: %u %s", file->f_inode->i_ino,
 	       nb_extents, nb_extents > 1 ? "extents" : "extent");
-	while (index_block[i]->start != 0) {
-		int start = index_block[i]->start;
-		int count = index_block[i]->count;
+	while (index_block[i].start != 0) {
+		uint32_t start = index_block[i].start;
+		uint32_t count = index_block[i].count;
 		if (count == 1)
 			printk("  [%u] start=%u count=%u (extent %u)", i, start,
 			       count, start);
