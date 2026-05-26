@@ -5,6 +5,7 @@
 #include <sys/ioctl.h> //ioctl
 
 #include "test.h"
+#include "ouichefs_ioctl.h"
 
 #define NBTHREADS 2
 #define NBREP 5
@@ -30,7 +31,7 @@ void* write_several_small_blocks(void *arg){
 		res = measure_write(fd_write, s_write, len_write);
 	}
 
-	manage_error(ioctl(fd_write, OUICHEFS_IOC_GET_EXTENTS, 0));
+	manage_error(ioctl(fd_write, OUICHEFS_IOC_GET_EXTENTS, 0), "write_several_small_blocks", "ioctl");
 
 	close_file(fd_write);
 	return NULL;

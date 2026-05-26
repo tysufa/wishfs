@@ -4,6 +4,7 @@
 #include <string.h> //strlen
 #include <time.h> //clock
 #include <fcntl.h> //open
+#include <unistd.h> //read, llseek
 
 #define s8B(c) c c c c c c c c
 #define s32B(c) s8B(c) s8B(c) s8B(c) s8B(c)

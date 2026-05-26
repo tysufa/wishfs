@@ -10,7 +10,7 @@
 #include <linux/fs.h>
 #include <linux/ioctl.h>
 
-#define OUICHEFS_MAGIC 0x48434957
+#include "ouichefs_ioctl.h"
 
 #define OUICHEFS_SB_BLOCK_NR 0
 
@@ -18,8 +18,6 @@
 #define OUICHEFS_MAX_FILESIZE (1 << 22) /* 4 MiB */
 #define OUICHEFS_FILENAME_LEN 28
 #define OUICHEFS_MAX_SUBFILES 128
-
-#define OUICHEFS_IOC_GET_EXTENTS _IO(OUICHEFS_MAGIC, 0)
 
 /*
  * ouiche_fs partition layout

@@ -7,7 +7,7 @@
 
 void read_write_simple(const char *file){
 
-	fprintf(stdout, "--- Test write on a simple case, and read too much bytes. ---\n");
+	fprintf(stdout, "--- Test writing in a simple case, and reading too much bytes. ---\n");
 
 	const char *s_write = "Hi, this is a test.";
 	const ssize_t len_write = strlen(s_write);
@@ -87,7 +87,7 @@ void write_too_big(const char* file){
 }
 
 void write_middle_simple(const char* file){
-	fprintf(stdout, "--- Test write in the middle of a simple file. ---\n");
+	fprintf(stdout, "--- Test writing in the middle of a simple file. ---\n");
 
 	//initialize file
 	__initialize_file_to(file, s8B("a") s8B("b") s8B("c"));
@@ -107,13 +107,13 @@ void write_middle_simple(const char* file){
 	)
 		fprintf(stdout, "Should read 8x'a'. Read: '%s'.\n", s_read);
 
-	//- write B on b
-	const char *s_write = s8B("B");
-	const ssize_t len_write = strlen(s_write);
+		//- write B on b
+		const char *s_write = s8B("B");
+		const ssize_t len_write = strlen(s_write);
 
-	res = measure_write(fd, s_write, len_write);
-	if (failed(res == len_write))
-		fprintf(stdout, "Should write 8 Bytes.\n");
+		res = measure_write(fd, s_write, len_write);
+		if (failed(res == len_write))
+			fprintf(stdout, "Should write 8 Bytes.\n");
 
 	//- read c
 	const ssize_t res_write = measure_read(fd, s_read, len_read-1);
@@ -129,7 +129,7 @@ void write_middle_simple(const char* file){
 }
 
 void write_middle_several_blocks(const char* file){
-	fprintf(stdout, "--- Test write in the middle of a file, over several blocks. ---\n");
+	fprintf(stdout, "--- Test writing in the middle of a file, over several blocks. ---\n");
 
 	ssize_t res;
 
@@ -164,7 +164,7 @@ void write_middle_several_blocks(const char* file){
 }
 
 void write_at_end_append(const char* file){
-	fprintf(stdout, "--- Test write at the end of a file using O_APPEND. ---\n");
+	fprintf(stdout, "--- Test writing at the end of a file using O_APPEND. ---\n");
 
 	//initialize file
 	__initialize_file_to(file, s8B("a"));
@@ -182,7 +182,7 @@ void write_at_end_append(const char* file){
 }
 
 void write_at_end_no_append(const char* file){
-	fprintf(stdout, "--- Test write at the end of a file NOT using O_APPEND. ---\n");
+	fprintf(stdout, "--- Test writing at the end of a file NOT using O_APPEND. ---\n");
 
 	//initialize file
 	__initialize_file_to(file, s8B("a"));
@@ -201,7 +201,7 @@ void write_at_end_no_append(const char* file){
 }
 
 void write_over_end(const char *file){
-	fprintf(stdout, "--- Test write a bit before the end and write over it. ---\n");
+	fprintf(stdout, "--- Test writing before and over the end. ---\n");
 
 	//initialize file
 	__initialize_file_to(file, s8B("a") s8B("a"));
@@ -219,7 +219,7 @@ void write_over_end(const char *file){
 	__compare_file_to(file, s8B("a") s8B("b") s8B("b"));
 }
 
-void write_sparse(const char *file){
+void create_sparse(const char *file){
 	fprintf(stdout, "--- Test creating a hole in a file. ---\n");
 
 	ssize_t res;
@@ -266,6 +266,45 @@ void write_sparse(const char *file){
 	}
 }
 
+void write_sparse(const char *file){
+	fprintf(stdout, "--- Writing in a hole in a file. ---\n");
+
+	ssize_t res;
+	char *s_write;
+	ssize_t len_write;
+
+	//write begin
+	__initialize_file_to(file, s1KB("a") s1KB("a"));
+
+	const int fd_write = open_file(file, O_APPEND); //position 2KB
+
+	//create hole
+	lseek(fd_write, v1KB * 4, SEEK_CUR); //6KB
+	lseek(fd_write, v1KB * 4, SEEK_CUR); //10KB
+	lseek(fd_write, v1KB * 4, SEEK_CUR); //14KB
+
+	//write (make sparse)
+	s_write = s1KB("d") s1KB("d");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write); //16KB
+
+	//write in the middle of the hole (over 1 whole block)
+	lseek(fd_write, v1KB * 6, SEEK_SET); //6KB
+	s_write = s4KB("c") s4KB("c");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write); //14KB
+
+	//write at the beginning of the hole
+	lseek(fd_write, v1KB * 2, SEEK_SET); //2KB
+	s_write = s4KB("b");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write); //6KB
+
+	close_file(fd_write);
+
+	__compare_file_to(file, s1KB("a") s1KB("a") s4KB("b") s4KB("c") s4KB("c") s1KB("d") s1KB("d"));
+}
+
 void read_trunc_several_blocks(const char *file){
 	fprintf(stdout, "--- Test with O_TRUNC option on several blocks. ---\n");
 
@@ -290,34 +329,37 @@ int main(int argc, char* argv[]){
 	fprintf(stdout, "=== TEST SUITE monothread ===\n");
 
 	/** Writes then reads some Bytes. Tries to read larger than file size. */
-	run_test(read_write_simple, PATH "read_write_simple.txt");
+	run_test(read_write_simple, PATH "simple");
 
 	/** Writes then reads 16KB. */
-	run_test(read_write_several_blocks, PATH "read_write_several_blocks.txt");
+	run_test(read_write_several_blocks, PATH "several_blocks");
 
 	/** Writes >4MB, more than max size. */
-	run_test(write_too_big, PATH "write_too_big.txt");
+	run_test(write_too_big, PATH "too_big.txt");
 
 	/** Write in the middle of a 24B file. Then read whole file. */
-	run_test(write_middle_simple, PATH "write_middle_simple.txt");
+	run_test(write_middle_simple, PATH "mid_simple");
 
 	/** Write in the middle of a 12KB file. Then read whole file. */
-	run_test(write_middle_several_blocks, PATH "write_middle_several_blocks.txt");
+	run_test(write_middle_several_blocks, PATH "mid_blks");
 
-	/** */
-	run_test(write_at_end_append, PATH "write_at_end_append.txt");
+	/** Write at the end of a file by using O_APPEND. */
+	run_test(write_at_end_append, PATH "end_append");
 
-	/** */
-	run_test(write_at_end_no_append, PATH "write_at_end_no_append.txt");
+	/** Write at the end of a file without using O_APPEND. */
+	run_test(write_at_end_no_append, PATH "end_no_append");
 
-	/** */
-	run_test(write_over_end, PATH "write_over_end.txt");
+	/** Write before the end, but long enough to write over the end of the file. */
+	run_test(write_over_end, PATH "over_end");
 
-	/** */
-	run_test(write_sparse, PATH "write_sparse.txt");
+	/** Write after the end of a file. Read in the hole. */
+	run_test(create_sparse, PATH "create_sparse");
 
-	/** */
-	run_test(read_trunc_several_blocks, PATH "read_trunc_several_blocks.txt");
+	/** Write in the middle of a hole, over a block, then at the beginning of the hole to fill the file again. */
+	run_test(write_sparse, PATH "write_sparse");
+
+	/** Write in a file then open it with O_TRUNC. */
+	run_test(read_trunc_several_blocks, PATH "trunc");
 
 	return EXIT_SUCCESS;
 }
