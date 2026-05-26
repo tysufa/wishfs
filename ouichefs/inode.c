@@ -365,8 +365,7 @@ static int ouichefs_unlink(struct inode *dir, struct dentry *dentry)
 		if (extent.count == 0) //end of file
 			break;
 
-		for(i=0; i<extent.count; i++){
-
+		for (i = 0; i < extent.count; i++) {
 			if (extent.start == 0) //hole
 				continue;
 
@@ -378,7 +377,7 @@ static int ouichefs_unlink(struct inode *dir, struct dentry *dentry)
 			memset(block, 0, OUICHEFS_BLOCK_SIZE);
 			mark_buffer_dirty(bh2);
 			brelse(bh2);
-		put_block:
+put_block:
 			put_block(sbi, le32_to_cpu(extent.start + i));
 		}
 	}

@@ -81,7 +81,8 @@ struct ouichefs_sb_info {
 };
 
 //for extent version
-#define OUICHEFS_MAX_EXTENTS (OUICHEFS_BLOCK_SIZE / sizeof(struct ouichefs_extent))
+#define OUICHEFS_MAX_EXTENTS \
+	(OUICHEFS_BLOCK_SIZE / sizeof(struct ouichefs_extent))
 
 struct ouichefs_extent {
 	uint32_t start; /* first physical block number of the run */
