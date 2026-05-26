@@ -80,7 +80,7 @@ void write_too_big(const char* file){
 	check_test(len_write == 4194304 + 32, "len_write must be 4MB+32B");
 
 	//write
-	fprintf(stdout, "This test must provoke an error or possibly write only 4MB out of 4MB and 32B\n    -> ");
+	fprintf(stdout, "This test must provoke an error or possibly write only 4MB (4194304) out of 4MB and 32B (4194336).\n    -> ");
 	const int fd_write = open_file(file, O_WRONLY);
 	const ssize_t res_write = measure_write(fd_write, s_write, len_write);
 	close_file(fd_write);
@@ -276,12 +276,10 @@ void write_sparse(const char *file){
 	//write begin
 	__initialize_file_to(file, s1KB("a") s1KB("a"));
 
-	const int fd_write = open_file(file, O_APPEND); //position 2KB
+	const int fd_write = open_file(file, O_WRONLY); //position 2KB
 
 	//create hole
-	lseek(fd_write, v1KB * 4, SEEK_CUR); //6KB
-	lseek(fd_write, v1KB * 4, SEEK_CUR); //10KB
-	lseek(fd_write, v1KB * 4, SEEK_CUR); //14KB
+	lseek(fd_write, v1KB * 14, SEEK_SET); //14KB
 
 	//write (make sparse)
 	s_write = s1KB("d") s1KB("d");

@@ -388,8 +388,8 @@ release_physical_index: // because some bytes might already be written
 static long ouichefs_ioctl(struct file *file, unsigned int cmd,
 			   unsigned long arg)
 {
-	if (_IOC_TYPE(cmd) != OUICHEFS_MAGIC)
-		return -EINVAL;
+	//if (_IOC_TYPE(cmd) != OUICHEFS_MAGIC)
+	//	return -EINVAL;
 
 	switch (cmd) {
 	case OUICHEFS_IOC_GET_EXTENTS:
