@@ -5,8 +5,10 @@
  * Copyright (C) 2018 Redha Gouicem <redha.gouicem@lip6.fr>
  */
 
+#include "linux/printk.h"
 #include "linux/types.h"
-#define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
+#define pr_fmt(fmt) "%s:%s: ouichefs:" fmt, KBUILD_MODNAME, __func__
+// TODO: remofe leading ouichefs: from pr_err
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -16,6 +18,39 @@
 
 #include "ouichefs.h"
 #include "bitmap.h"
+
+static long get_extents(struct file *file)
+{
+	struct ouichefs_inode_info *fsiinfo = OUICHEFS_INODE(file->f_inode);
+	physical_index =
+		sb_bread(sb, fsiinfo->index_block); // on récupère l'index
+	if (!physical_index) {
+		pr_err("impossible de lire le bloc d'index %u\n",
+		       fsiinfo->index_block);
+		return -EIO;
+	}
+	struct ouichefs_file_index_block *index_block =
+		(struct ouichefs_file_index_block *)physical_index->b_data;
+	uint16_t i = 0;
+	uint16_t nb_extents = 0;
+	while (index_block[nb_extents]->count != 0)
+		nb_extents++;
+	printk("ouichefs: extents for inode %u: %u %s", file->f_inode->i_ino,
+	       nb_extents, nb_extents > 1 ? "extents" : "extent");
+	while (index_block[i]->start != 0) {
+		int start = index_block[i]->start;
+		int count = index_block[i]->count;
+		if (count == 1)
+			printk("  [%u] start=%u count=%u (extent %u)", i, start,
+			       count, start);
+		else
+			printk("  [%u] start=%u count=%u (extents %u-%u)", i,
+			       start, count, start, start + count);
+		i++;
+	}
+	brelse(physical_index);
+	return 0;
+}
 
 /*
  * Map the buffer_head passed in argument with the iblock-th block of the file
@@ -392,7 +427,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	if (*ppos > file->f_inode->i_size) {
 		file->f_inode->i_size = *ppos;
 		mark_inode_dirty(file->f_inode);
-	    // TODO: rajouter le file->f_inode->i_blocks ou quelque chose comme ça
+		// TODO: rajouter le file->f_inode->i_blocks ou quelque chose comme ça
 	}
 
 release_physical_index: // because some bytes might already be written
@@ -404,29 +439,41 @@ release_physical_index: // because some bytes might already be written
 //TODO: mettre en tête de fichier
 #include <linux/ioctl.h> //ou include/uapi/asm-generic/ioctl.h ??
 #define IOC_MAGIC //cf ci-dessous
-	//TODO: choisir le numéro magique selon cette liste (scroller un peu)
-	//https://www.kernel.org/doc/html/latest/userspace-api/ioctl/ioctl-number.html
+//TODO: choisir le numéro magique selon cette liste (scroller un peu)
+//https://www.kernel.org/doc/html/latest/userspace-api/ioctl/ioctl-number.html
 #define OUICHEFS_IOC_GET_EXTENTS _IO(IOC_MAGIC, todo_num)
-	//TODO: choisir un numéro non-utilisé à la place de todo_num
+//TODO: choisir un numéro non-utilisé à la place de todo_num
 
-static int ouichefs_ioctl( struct file *file, unsigned int cmd, unsigned long arg){
-	if(_IOC_TYPE(cmd) != IOC_MAGIC) return -1; //check that is right
+static int ouichefs_ioctl(struct file *file, unsigned int cmd,
+			  unsigned long arg)
+{
+	if (_IOC_TYPE(cmd) != IOC_MAGIC)
+		return -1; //check that is right
 	//autres macros pour la gestion d'erreur, à check
-		//_IOC_DIR( cmd )
-		//_IOC_NR( cmd )
-		//_IOC_SIZE( cmd )
+	//_IOC_DIR( cmd )
+	//_IOC_NR( cmd )
+	//_IOC_SIZE( cmd )
+	switch (cmd) {
+	case OUICHEFS_IOC_GET_EXTENTS:
+		return get_extents(file);
+		break;
+	default:
+		pr_warn("unknown ioctl command.");
+		return -EINVAL;
+	}
 
 	return 0;
 }
 
-const struct file_operations ouichefs_file_ops = {
-	.owner = THIS_MODULE,
-	.open = ouichefs_open,
-	.read = ouichefs_read,
-	.write = ouichefs_write,
-	.unlocked_ioctl = ouichefs_ioctl;
-	.llseek = generic_file_llseek,
+const struct file_operations ouichefs_file_ops = { .owner = THIS_MODULE,
+						   .open = ouichefs_open,
+						   .read = ouichefs_read,
+						   .write = ouichefs_write,
+						   .unlocked_ioctl =
+							   ouichefs_ioctl;
+.llseek = generic_file_llseek,
 	// .read_iter = generic_file_read_iter,
 	// .write_iter = generic_file_write_iter,
 	.fsync = generic_file_fsync,
-};
+}
+;
