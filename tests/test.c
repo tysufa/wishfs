@@ -203,7 +203,7 @@ void write_at_end_no_append(const char* file){
 	__compare_file_to(file, s8B("a") s8B("b"));
 }
 
-void write_over_end(const char* file){
+void write_over_end(const char *file){
 	fprintf(stdout, "--- Test write a bit before the end and write over it. ---\n");
 
 	//initialize file
@@ -222,7 +222,7 @@ void write_over_end(const char* file){
 	__compare_file_to(file, s8B("a") s8B("b") s8B("b"));
 }
 
-void write_after_end(const char* file){
+void write_after_end(const char *file){
 	fprintf(stdout, "--- Test creating a hole in a file. ---\n");
 
 	ssize_t res;
@@ -269,6 +269,25 @@ void write_after_end(const char* file){
 	}
 }
 
+void read_trunc_several_blocs(const char *file){
+	fprintf(stdout, "--- Test with O_TRUNC option on several blocks. ---\n");
+
+	//initialize file
+	__initialize_file_to(file, s4KB("a") s4KB("a"));
+
+	//read with trunc flag
+	const size_t len_read = v1KB*2 + 1;
+	char s_read[len_read];
+	__init_buffer_with_zeroes(s_read, len_read);
+
+	const int fd_read = open_file(file, O_RDONLY | O_TRUNC);
+	const ssize_t res = measure_read(fd_read, s_read, len_read);
+	close_file(fd_read);
+
+	if (failed(res == 0))
+		fprintf(stdout, "Should read nothing (empty file).\n");
+}
+
 #define path "/mnt/test_mnt/test_"
 
 int main(int argc, char* argv[]){
@@ -299,6 +318,9 @@ int main(int argc, char* argv[]){
 
 	//describe //TODO
 	run_test(write_after_end, path "write_after_end.txt");
+
+	//describe //TODO
+	run_test(read_trunc_several_blocs, "read_trunc_several_blocs.txt");
 
 	return EXIT_SUCCESS;
 }

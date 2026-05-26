@@ -140,7 +140,10 @@ void write_at_end_append(const char* file);
 void write_at_end_no_append(const char* file);
 
 /** */
-void write_over_end(const char* file);
+void write_over_end(const char *file);
 
 /** */
-void write_after_end(const char* file);
+void write_after_end(const char *file);
+
+/** */
+void read_trunc_several_blocs(const char *file);
