@@ -40,7 +40,7 @@ void read_write_simple(const char *file){
 		fprintf(stdout, "Should read '%s'. Read: '%s'.\n", s_write, s_read);
 }
 
-void read_write_several_blocs(char *file){
+void read_write_several_blocs(const char *file){
 	fprintf(stdout, "--- Test read/write on several blocks. ---\n");
 
 	const char *s_write = s4KB("a") s4KB("b") s4KB("c") s4KB("d"); //total 16KB
@@ -96,10 +96,7 @@ void write_middle_simple(const char* file){
 	__initialize_file_to(file, s8B("a") s8B("b") s8B("c"));
 
 	//tests on reads & writes
-	const char *s_write = s8B("B");
-	const ssize_t len_write = strlen(s_write);
-
-	const size_t len_read = 8;
+	const size_t len_read = 9;
 	char s_read[len_read];
 	__init_buffer_with_zeroes(s_read, len_read);
 
@@ -107,20 +104,23 @@ void write_middle_simple(const char* file){
 	const int fd = open_file(file, O_RDWR);
 
 	//- read a
-	res = measure_read(fd, s_read, len_read);
-	if (failed(res == len_read)
+	res = measure_read(fd, s_read, len_read-1);
+	if (failed(res == len_read-1)
 		|| failed(strcmp(s_read, s8B("a")) == 0)
 	)
 		fprintf(stdout, "Should read 8x'a'. Read: '%s'.\n", s_read);
 
-		//- write B on b
-		res = measure_write(fd, s_write, len_write);
-		if (failed(res == len_write))
-			fprintf(stdout, "Should write 8 Bytes.\n");
+	//- write B on b
+	const char *s_write = s8B("B");
+	const ssize_t len_write = strlen(s_write);
+
+	res = measure_write(fd, s_write, len_write);
+	if (failed(res == len_write))
+		fprintf(stdout, "Should write 8 Bytes.\n");
 
 	//- read c
-	const ssize_t res_write = measure_read(fd, s_read, len_read);
-	if (failed(res == len_read)
+	const ssize_t res_write = measure_read(fd, s_read, len_read-1);
+	if (failed(res == len_read-1)
 		|| failed(strcmp(s_read, s8B("c")) == 0)
 	)
 		fprintf(stdout, "Should read 8x'c'. Read: '%s'.\n", s_read);
@@ -132,24 +132,32 @@ void write_middle_simple(const char* file){
 }
 
 void write_middle_several_blocs(const char* file){
-	fprintf(stdout, "--- Test write in the middle of a file, over several blocks, using seek. ---\n");
+	fprintf(stdout, "--- Test write in the middle of a file, over several blocks. ---\n");
+
+	ssize_t res;
 
 	//initialize file
 	__initialize_file_to(file, s4KB("a") s4KB("a") s4KB("a")); //12KB
 
 	//test writing over several blocks
+	const int fd = open_file(file, O_RDWR);
+
+	//seek position to 2KB
+	const size_t len_read = v1KB*2+1;
+	char s_read[len_read];
+	__init_buffer_with_zeroes(s_read, len_read);
+
+	res = measure_read(fd, s_read, len_read-1);
+	if (failed(res == len_read-1))
+		fprintf(stdout, "Should read 2KB = 2048 Bytes.\n");
+
+	//write 8KB (1/2 1st block, 1 2nd block, 1/2 3rd block)
 	const char *s_write = s4KB("b") s4KB("b");
 	const ssize_t len_write = strlen(s_write);
 
-	const int fd = open_file(file, O_WRONLY);
-
-	//seek position to 2KB
-	lseek(fd, v1KB*2, SEEK_SET);
-
-	//write 8KB (1/2 1st block, 1 2nd block, 1/2 3rd block)
-	const ssize_t res = measure_write(fd, s_write, len_write);
+	res = measure_write(fd, s_write, len_write);
 	if (failed(res == len_write))
-		fprintf(stdout, "Should write 8KB = 8388608 Bytes.\n");
+		fprintf(stdout, "Should write 8KB = 8192 Bytes.\n");
 
 	close_file(fd);
 
@@ -187,7 +195,7 @@ void write_at_end_no_append(const char* file){
 	const ssize_t len_write = strlen(s_write);
 
 	const int fd_write = open_file(file, O_WRONLY);
-	lseek(fd, 0, SEEK_END); //set offset at the end
+	lseek(fd_write, 0, SEEK_END); //set offset at the end
 	const ssize_t res = measure_write(fd_write, s_write, len_write);
 	close_file(fd_write);
 
@@ -206,7 +214,7 @@ void write_over_end(const char* file){
 	const ssize_t len_write = strlen(s_write);
 
 	const int fd_write = open_file(file, O_WRONLY);
-	lseek(fd, 8, SEEK_SET);
+	lseek(fd_write, 8, SEEK_SET);
 	const ssize_t res = measure_write(fd_write, s_write, len_write);
 	close_file(fd_write);
 
@@ -217,6 +225,8 @@ void write_over_end(const char* file){
 void write_after_end(const char* file){
 	fprintf(stdout, "--- Test creating a hole in a file. ---\n");
 
+	ssize_t res;
+
 	//initialize file
 	__initialize_file_to(file, s8B("a"));
 
@@ -225,8 +235,8 @@ void write_after_end(const char* file){
 	const ssize_t len_write = strlen(s_write);
 
 	const int fd_write = open_file(file, O_WRONLY);
-	lseek(fd, 16, SEEK_SET);
-	const ssize_t res = measure_write(fd_write, s_write, len_write);
+	lseek(fd_write, 16, SEEK_SET);
+	res = measure_write(fd_write, s_write, len_write);
 	close_file(fd_write);
 
 	//check final state
@@ -236,58 +246,59 @@ void write_after_end(const char* file){
 
 	//expecting s8B("a") s8B("\0") s8B("b")
 	const int fd_final = open_file(file, O_RDONLY);
-	const ssize_t res = measure_read(fd_final, s_read, len_read);
+	res = measure_read(fd_final, s_read, len_read);
 	close_file(fd_final);
 
 	//check read
-	if (failed(res == 24))
-		fprintf(stdout, "Should read '%s'. Read: '%s'.\n", s_final, s_read);
+	if (failed(res == len_read-1))
+		fprintf(stdout, "Should read 24B. Read: '%s'.\n", s_read);
 
 	//check content
-	for (size_t i=0; i<8; i++){
+	size_t i = 0;
+	for (; i<8; i++){
 		if (failed(s_read[i] == 'a'))
 			fprintf(stdout, "Should read 'a'. Read: '%c'.\n", s_read[i]);
 	}
-	for (size_t i=0; i<8; i++){
+	for (; i<16; i++){
 		if (failed(s_read[i] == '\0'))
-			fprintf(stdout, "Should read '\0'. Read: '%c'.\n", s_read[i]);
+			fprintf(stdout, "Should read '\\0'. Read: '%d' (char interpreted as int).\n", s_read[i]);
 	}
-	for (size_t i=0; i<8; i++){
+	for (; i<24; i++){
 		if (failed(s_read[i] == 'b'))
 			fprintf(stdout, "Should read 'b'. Read: '%c'.\n", s_read[i]);
 	}
 }
 
+#define path "/mnt/test_mnt/test_"
+
 int main(int argc, char* argv[]){
 
-	const char *path = "/mnt/test_mnt/test_"
-
 	//simple read-write
-	run_test(read_write_simple, path + "read_write_simple");
+	run_test(read_write_simple, path "read_write_simple.txt");
 
 	//read 4 blocks of 1KB
-	run_test(read_write_several_blocs, path + "read_write_several_blocs");
+	run_test(read_write_several_blocs, path "read_write_several_blocs.txt");
 
 	//write >4MB in a file
-	run_test(write_too_big, path + "write_too_big");
+	run_test(write_too_big, path "write_too_big.txt");
 
 	//read/write in the middle of a file, check offset
-	run_test(write_middle_simple, path + "write_middle_simple");
+	run_test(write_middle_simple, path "write_middle_simple.txt");
 
 	//describe //TODO
-	run_test(write_middle_several_blocs, path + "write_middle_several_blocs");
+	run_test(write_middle_several_blocs, path "write_middle_several_blocs.txt");
 
 	//describe //TODO
-	run_test(write_at_end_append, path + "write_at_end_append");
+	run_test(write_at_end_append, path "write_at_end_append.txt");
 
 	//describe //TODO
-	run_test(write_at_end_no_append, path + "write_at_end_no_append");
+	run_test(write_at_end_no_append, path "write_at_end_no_append.txt");
 
 	//describe //TODO
-	run_test(write_over_end, path + "write_over_end");
+	run_test(write_over_end, path "write_over_end.txt");
 
 	//describe //TODO
-	run_test(write_after_end, path + "write_after_end");
+	run_test(write_after_end, path "write_after_end.txt");
 
 	return EXIT_SUCCESS;
 }

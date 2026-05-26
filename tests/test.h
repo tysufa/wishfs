@@ -18,8 +18,8 @@
 #define s1MB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c)
 #define s4MB(c) s1MB(c) s1MB(c) s1MB(c) s1MB(c)
 
-#define v1KB 1 << 10
-#define v1MB 1 << 20
+#define v1KB (1 << 10)
+#define v1MB (1 << 20)
 
 void manage_error(int no, const char *fname, const char *fdescr){
 	if (no < 0){
@@ -57,7 +57,7 @@ do { \
 
 #define create_file(_path) \
 do { \
-	const int fd = open(_path, O_CREAT | O_TRUNC | O_RDWR, 600); \
+	const int fd = open(_path, O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR); \
 	manage_error(fd, __func__, "open"); \
 	close_file(fd); \
 } while(0)
@@ -122,7 +122,7 @@ void run_test(void (*func)(const char *), char *path){
 void read_write_simple(const char *file);
 
 /** Writes then reads 16KB. */
-void read_write_several_blocs(char *file);
+void read_write_several_blocs(const char *file);
 
 /** Writes >4MB, more than max size. */
 void write_too_big(const char* file);
