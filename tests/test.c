@@ -122,8 +122,8 @@ void read_write_several_blocs(char *file){
 	const char *s_write = s4KB("a") s4KB("b") s4KB("c") s4KB("d"); //total 16KB
 	const ssize_t len_write = strlen(s_write);
 
-	char s_read[(v1KB << 4) + 100] = {0};
-	const size_t len_read = (v1KB << 4) + 100;
+	char s_read[(v1KB << 2 << 2) + 100] = {0};
+	const size_t len_read = (v1KB << 2 << 2) + 100;
 
 	check_test(len_write == 16384, "len_write must be 16KB");
 
@@ -142,9 +142,9 @@ void read_write_several_blocs(char *file){
 	//tests
 	if (failed(res_read == len_write)
 		|| failed(s_read[0] == 'a')
-		|| failed(s_read[v1KB << 4] == 'b')
-		|| failed(s_read[(v1KB << 4)*2] == 'c')
-		|| failed(s_read[(v1KB << 4)*3] == 'd')
+		|| failed(s_read[v1KB << 2] == 'b')
+		|| failed(s_read[(v1KB << 2)*2] == 'c')
+		|| failed(s_read[(v1KB << 2)*3] == 'd')
 	)
 		fprintf(stdout, "Should read 1KB of 'a', 'b', 'c', and 'd' each. Read '%s'.\n", s_read);
 }
