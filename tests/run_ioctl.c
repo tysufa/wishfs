@@ -13,9 +13,13 @@ int main(int argc, char *argv[]) {
   int fd;
 
   if (argc < 2) {
-    fprintf(stderr, "Usage: %s <chemin_du_peripherique>\n", argv[0]);
+    fprintf(stderr, "Usage: %s <chemin_du_peripherique> [force]\n", argv[0]);
     return EXIT_FAILURE;
   }
+
+  long force = 0;
+  if (argc > 2)
+    force = 1;
 
   // 1. Ouverture du fichier (ou device node)
   fd = open(argv[1], O_RDWR);
@@ -27,7 +31,7 @@ int main(int argc, char *argv[]) {
   printf("Exécution de l'ioctl APPEL_IOC (0x%lx) sur %s...\n", (unsigned long) OUICHEFS_IOC_GET_EXTENTS, argv[1]);
 
   // 2. Appel ioctl
-  if (ioctl(fd, OUICHEFS_IOC_GET_EXTENTS) < 0) {
+  if (ioctl(fd, OUICHEFS_IOC_GET_EXTENTS, force) < 0) {
     fprintf(stderr, "Erreur ioctl: %s\n", strerror(errno));
     close(fd);
     return EXIT_FAILURE;
