@@ -116,6 +116,9 @@ void __compare_file_to(const char *file, const char* s_final){
 }
 
 void run_test(void (*func)(const char *), char *path){
+	//stocker free blocks (1) //TODO
 	create_file(path);
 	func(path);
+	//supprimer fichier //TODO
+	//comparer nombre free blocks avec (1) //TODO
 }

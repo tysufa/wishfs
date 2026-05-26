@@ -31,7 +31,7 @@ void* write_several_small_blocks(void *arg){
 		res = measure_write(fd_write, s_write, len_write);
 	}
 
-	manage_error(ioctl(fd_write, OUICHEFS_IOC_GET_EXTENTS, 0), "write_several_small_blocks", "ioctl");
+	manage_error(ioctl(fd_write, OUICHEFS_IOC_GET_EXTENTS, 0), "write_several_small_blocks", "ioctl"); //TODO
 
 	close_file(fd_write);
 	return NULL;
