@@ -22,17 +22,17 @@ static uint32_t ouichefs_extent_get_block(struct ouichefs_extent *extents,
 					  uint32_t logical_block)
 {
 	uint16_t i = 0;
-	while (extents[i].count) {
-		uint32_t start = extents[i].start;
+	while (i < OUICHEFS_MAX_EXTENTS && extents[i].count) {
 		uint32_t count = extents[i].count;
 		if (count < logical_block) {
 			logical_block -= count;
-			i += count;
+			i++;
 			continue;
 		}
-		return start + (count - logical_block);
+		return extents[i].start + (count - logical_block);
 	}
-  return 0;
+  pr_err("Did not successfully find logical_block #%u in extents.", logical_block);
+	return 0;
 }
 
 static long get_extents(struct file *file)
@@ -49,12 +49,12 @@ static long get_extents(struct file *file)
 		(struct ouichefs_file_index_block *)physical_index->b_data;
 	uint16_t i = 0;
 	uint16_t nb_extents = 0;
-	// TODO: ajouter un max d'itération parce qu'on peut remplir au max un index_block
-	while (index_block[nb_extents]->count != 0)
+	while (nb_extents < OUICHEFS_MAX_EXTENTS &&
+	       index_block[nb_extents]->count != 0)
 		nb_extents++;
 	printk("ouichefs: extents for inode %u: %u %s", file->f_inode->i_ino,
 	       nb_extents, nb_extents > 1 ? "extents" : "extent");
-	while (index_block[i].start != 0) {
+	while (i < OUICHEFS_MAX_EXTENTS && index_block[i].start != 0) {
 		uint32_t start = index_block[i].start;
 		uint32_t count = index_block[i].count;
 		if (count == 1)
