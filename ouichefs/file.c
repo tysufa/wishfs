@@ -17,6 +17,27 @@
 #include "ouichefs.h"
 #include "bitmap.h"
 
+void release_extent_block(struct super_block *sb, uint32_t start,
+			  uint32_t count)
+{
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(sb);
+	struct buffer_head *bh = NULL;
+	char *block;
+	uint32_t block_number = start;
+
+	while (block_number < start + count) {
+		bh = sb_bread(sb, le32_to_cpu(block_number));
+		if (bh) {
+			block = (char *)bh->b_data;
+			memset(block, 0, OUICHEFS_BLOCK_SIZE);
+			mark_buffer_dirty(bh);
+			brelse(bh);
+		}
+		put_block(sbi, le32_to_cpu(block_number));
+		block_number++;
+	}
+}
+
 static uint32_t ouichefs_extent_get_block(struct ouichefs_extent *extents,
 					  uint32_t logical_block)
 {
@@ -251,7 +272,10 @@ release_head_index:
 #define NR_ALLOCS (nr_allocs & ~(1 << 31))
 #define SET_ALLOC nr_allocs |= 1 << 31
 #define ISSET_ALLOC (nr_allocs & (1 << 31))
-#define VALUE_NR(value) (nr_allocs = ISSET_ALLOC | (NR_ALLOCS + value))
+#define VALUE_NR(value) (nr_allocs = ISSET_ALLOC | (value & ~(1 << 31)))
+#define DEC_NR(value)              \
+	(nr_allocs = ISSET_ALLOC | \
+		     (NR_ALLOCS - value < 0 ? 0 : NR_ALLOCS - value))
 
 ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		       size_t count, loff_t *ppos)
@@ -309,21 +333,37 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		uint32_t new_count = 0;
 		// si on doit allouer de nouveaux blocs
 		if (physical_block_number == 0) {
+			// making new reservation if possible
+			if (NR_ALLOCS < reservation_size &&
+			    fsiinfo->i_reserved_count == 0) {
+				fsiinfo->i_reserved_count =
+					ouichefs_alloc_contiguous(
+						sb, reservation_size,
+						&(fsiinfo->i_reserved_start));
+			}
+			if (fsiinfo->i_reserved_count > 0) {
+				// on a des blocs de réservés
+				physical_block_number =
+					fsiinfo->i_reserved_start;
+				fsiinfo->i_reserved_start++;
+				fsiinfo->i_reserved_count--;
+				new_count = 1;
+			}
 			// pr_info("On cherche un nouveau bloc\n");
-			if (NR_ALLOCS) {
+			else if (NR_ALLOCS) {
 				new_count = ouichefs_alloc_contiguous(
 					sb, NR_ALLOCS, &physical_block_number);
-				VALUE_NR(NR_ALLOCS - new_count);
 			} else {
 				physical_block_number = get_free_block(sbi);
 				new_count = 1;
 			}
+			DEC_NR(new_count);
 			if (!physical_block_number || !new_count) {
 				pr_err("pas de blocks disponibles pour l'écriture\n");
 				bytes_written = -ENOSPC;
 				goto release_physical_index;
 			}
-			file->f_inode->i_blocks++;
+			file->f_inode->i_blocks += new_count;
 			SET_ALLOC;
 			struct ouichefs_extent *extents = index_block->extents;
 			uint16_t i = 0;

@@ -13,6 +13,8 @@
 
 #include "ouichefs.h"
 
+uint32_t reservation_size = 8;
+
 /*
  * Mount a ouiche_fs partition
  */
@@ -52,6 +54,8 @@ static struct file_system_type ouichefs_file_system_type = {
 
 static int __init ouichefs_init(void)
 {
+	module_param(reservation_size, uint, 0644);
+
 	int ret;
 
 	ret = ouichefs_init_inode_cache();

@@ -178,6 +178,8 @@ static struct inode *ouichefs_new_inode(struct inode *dir, mode_t mode)
 		goto put_inode;
 	}
 	ci->index_block = bno;
+	ci->i_reserved_start = 0;
+	ci->i_reserved_count = 0;
 
 	/* Initialize inode */
 	inode_init_owner(&nop_mnt_idmap, inode, dir, mode);
