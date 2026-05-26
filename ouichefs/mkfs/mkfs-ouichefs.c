@@ -55,8 +55,17 @@ struct ouichefs_superblock {
 	char padding[4064]; /* Padding to match block size */
 };
 
+#define OUICHEFS_MAX_EXTENTS \
+	(OUICHEFS_BLOCK_SIZE / sizeof(struct ouichefs_extent))
+
+struct ouichefs_extent {
+	uint32_t start; /* first physical block number of the run */
+	uint32_t count; /* number of consecutive blocks in the run */
+};
+
 struct ouichefs_file_index_block {
-	uint32_t blocks[OUICHEFS_BLOCK_SIZE >> 2];
+	//__le32 blocks[OUICHEFS_BLOCK_SIZE >> 2];
+	struct ouichefs_extent extents[OUICHEFS_MAX_EXTENTS];
 };
 
 struct ouichefs_dir_block {
@@ -132,10 +141,10 @@ static struct ouichefs_superblock *write_superblock(int fd,
 	       "\tnr_free_inodes=%u\n"
 	       "\tnr_free_blocks=%u\n",
 	       sizeof(struct ouichefs_superblock), le32toh(sb->magic),
-		   le32toh(sb->nr_blocks), le32toh(sb->nr_inodes),
-		   le32toh(sb->nr_istore_blocks),
-		   le32toh(sb->nr_ifree_blocks), le32toh(sb->nr_bfree_blocks),
-		   le32toh(sb->nr_free_inodes), le32toh(sb->nr_free_blocks));
+	       le32toh(sb->nr_blocks), le32toh(sb->nr_inodes),
+	       le32toh(sb->nr_istore_blocks), le32toh(sb->nr_ifree_blocks),
+	       le32toh(sb->nr_bfree_blocks), le32toh(sb->nr_free_inodes),
+	       le32toh(sb->nr_free_blocks));
 
 	return sb;
 }
@@ -340,8 +349,8 @@ static int write_data_blocks(int fd, struct ouichefs_superblock *sb)
 }
 
 /** Retrieve the size of a block device.
- * 
- * @param[in] fd open file descriptor of the block device 
+ *
+ * @param[in] fd open file descriptor of the block device
  * @param[out] size the size of the device in bytes
  * @return 0 on success. -1 on failure with errno set.
  */
