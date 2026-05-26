@@ -267,14 +267,9 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		*ppos = file->f_inode->i_size;
 	}
 
-	/* Check if the write can be completed (enough space?) */
-	if (*ppos + count > OUICHEFS_MAX_FILESIZE)
-		return -ENOSPC;
-
 	nr_allocs =
 		max(*ppos + count, (unsigned long long)file->f_inode->i_size) /
 		OUICHEFS_BLOCK_SIZE;
-
 	if (nr_allocs > file->f_inode->i_blocks - 1)
 		nr_allocs -= file->f_inode->i_blocks - 1;
 	else
@@ -307,14 +302,21 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		uint32_t physical_block_number = ouichefs_extent_get_block(
 			index_block->extents, logical_block_nb);
 		pr_info("Got block %u\n", physical_block_number);
-
+		uint32_t new_count = 0;
 		if (physical_block_number == 0) {
 			pr_info("On cherche un nouveau bloc\n");
-			physical_block_number = get_free_block(sbi);
-			if (!physical_block_number) {
+			if (nr_allocs) {
+				new_count = ouichefs_alloc_contiguous(
+					sb, nr_allocs, &physical_block_number);
+				nr_allocs -= new_count;
+			} else {
+				physical_block_number = get_free_block(sbi);
+				new_count = 1;
+			}
+			if (!physical_block_number || !new_count) {
 				pr_err("pas de blocks disponibles pour l'écriture\n");
-				brelse(physical_index);
-				return -ENOSPC;
+				bytes_written = -ENOSPC;
+				goto release_physical_index;
 			}
 			file->f_inode->i_blocks++;
 			struct ouichefs_extent *extents = index_block->extents;
@@ -325,15 +327,19 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 						    extents[i - 1].count) :
 						   0;
 			if (i != 0 && physical_block_number == next_extent) {
-				extents[i - 1].count++; // si le bloc est continu
+				extents[i - 1].count +=
+					new_count; // si le bloc est continu
 				pr_info("Nouveau bloc continu\n");
 			} else if (i >= OUICHEFS_MAX_EXTENTS) {
+				while (new_count--)
+					brelse(physical_block_number +
+					       new_count);
 				pr_err("No more space in index.\n");
-				brelse(physical_index);
-				return -ENOSPC; // on doit rajouter une extent mais on est déjà au max...
+				bytes_written = -ENOSPC;
+				goto release_physical_index;
 			} else { // si on doit ajouter un nouvel extent
 				pr_info("Creating new extent in index\n");
-				extents[i].count = 1;
+				extents[i].count = new_count;
 				extents[i].start = physical_block_number;
 			}
 			mark_buffer_dirty(physical_index);
@@ -364,12 +370,11 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		count -= bytes_to_write;
 	}
 
+release_physical_index: // because some bytes might already be written
 	if (*ppos > file->f_inode->i_size) {
 		file->f_inode->i_size = *ppos;
 		mark_inode_dirty(file->f_inode);
 	}
-
-release_physical_index: // because some bytes might already be written
 	write_dirty_buffer(physical_index, REQ_OP_WRITE); // async
 	// sync_dirty_buffer(physical_index); // sync
 	brelse(physical_index);
