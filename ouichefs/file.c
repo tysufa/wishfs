@@ -248,6 +248,11 @@ release_head_index:
 	return ret;
 }
 
+#define NR_ALLOCS (nr_allocs & ~(1 << 31))
+#define SET_ALLOC nr_allocs |= 1 << 31
+#define ISSET_ALLOC (nr_allocs & (1 << 31))
+#define VALUE_NR(value) (nr_allocs = ISSET_ALLOC | (NR_ALLOCS + value))
+
 ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		       size_t count, loff_t *ppos)
 {
@@ -305,10 +310,10 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		// si on doit allouer de nouveaux blocs
 		if (physical_block_number == 0) {
 			// pr_info("On cherche un nouveau bloc\n");
-			if (nr_allocs) {
+			if (NR_ALLOCS) {
 				new_count = ouichefs_alloc_contiguous(
-					sb, nr_allocs, &physical_block_number);
-				nr_allocs -= new_count;
+					sb, NR_ALLOCS, &physical_block_number);
+				VALUE_NR(NR_ALLOCS - new_count);
 			} else {
 				physical_block_number = get_free_block(sbi);
 				new_count = 1;
@@ -319,6 +324,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 				goto release_physical_index;
 			}
 			file->f_inode->i_blocks++;
+			SET_ALLOC;
 			struct ouichefs_extent *extents = index_block->extents;
 			uint16_t i = 0;
 			while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
@@ -379,6 +385,8 @@ release_physical_index: // because some bytes might already be written
 		file->f_inode->i_size = *ppos;
 		mark_inode_dirty(file->f_inode);
 	}
+	if (ISSET_ALLOC)
+		mark_inode_dirty(file->f_inode);
 	write_dirty_buffer(physical_index, REQ_OP_WRITE); // async
 	// sync_dirty_buffer(physical_index); // sync
 	brelse(physical_index);
