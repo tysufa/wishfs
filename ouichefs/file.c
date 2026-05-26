@@ -146,8 +146,8 @@ uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
 						   current_free_block + 1);
 
 		if (current_free_block != last_free_bloc + 1) {
-			pr_info("current_free_block : %lu, last_free_bloc : %lu\n",
-				current_free_block, last_free_bloc);
+			// pr_info("current_free_block : %lu, last_free_bloc : %lu\n",
+			// current_free_block, last_free_bloc);
 
 			first_free_bloc_contiguous = current_free_block;
 			block_allocated = 0;
@@ -158,8 +158,8 @@ uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
 		last_free_bloc = current_free_block;
 	}
 
-	pr_info("blocks allocated : %lu - %lu\n", first_free_bloc_contiguous,
-		current_free_block);
+	// pr_info("blocks allocated : %lu - %lu\n", first_free_bloc_contiguous,
+	// current_free_block);
 
 	// TODO: rajouter un lock pour pas se faire manger des blocks pendant qu'on clear
 	bitmap_clear(bfree_bitmap, first_free_bloc_contiguous, block_allocated);
@@ -216,7 +216,7 @@ ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,
 			ret = -EFAULT;
 			goto release_head_index;
 		}
-		pr_info("Reading physical block %u", physical_block);
+		// pr_info("Reading physical block %u", physical_block);
 		buffer_block = sb_bread(sb, physical_block);
 
 		if (!buffer_block) {
@@ -274,19 +274,18 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		nr_allocs -= file->f_inode->i_blocks - 1;
 	else
 		nr_allocs = 0;
-
+	// si on sait d'avance qu'on ne pourra jamais allouer
 	if (nr_allocs > sbi->nr_free_blocks)
 		return -ENOSPC;
 
+	// on récupère l'index
 	physical_index =
 		sb_bread(sb, fsiinfo->index_block); // on récupère l'index
-
 	if (!physical_index) {
 		pr_err("Impossible de lire le bloc d'index %u\n",
 		       fsiinfo->index_block);
 		return -EIO;
 	}
-
 	// on caste les informations du block d'index dans la struct adapté
 	struct ouichefs_file_index_block *index_block =
 		(struct ouichefs_file_index_block *)physical_index->b_data;
@@ -301,10 +300,11 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		// on récupère le block qu'on veut lire
 		uint32_t physical_block_number = ouichefs_extent_get_block(
 			index_block->extents, logical_block_nb);
-		pr_info("Got block %u\n", physical_block_number);
+		// pr_info("Got block %u\n", physical_block_number);
 		uint32_t new_count = 0;
+		// si on doit allouer de nouveaux blocs
 		if (physical_block_number == 0) {
-			pr_info("On cherche un nouveau bloc\n");
+			// pr_info("On cherche un nouveau bloc\n");
 			if (nr_allocs) {
 				new_count = ouichefs_alloc_contiguous(
 					sb, nr_allocs, &physical_block_number);
@@ -329,7 +329,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 			if (i != 0 && physical_block_number == next_extent) {
 				extents[i - 1].count +=
 					new_count; // si le bloc est continu
-				pr_info("Nouveau bloc continu\n");
+				// pr_info("Nouveau bloc continu\n");
 			} else if (i >= OUICHEFS_MAX_EXTENTS) {
 				while (new_count--) {
 					physical_block = sb_bread(
@@ -342,14 +342,14 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 				bytes_written = -ENOSPC;
 				goto release_physical_index;
 			} else { // si on doit ajouter un nouvel extent
-				pr_info("Creating new extent in index\n");
+				// pr_info("Creating new extent in index\n");
 				extents[i].count = new_count;
 				extents[i].start = physical_block_number;
 			}
 			mark_buffer_dirty(physical_index);
 		}
 
-		pr_info("reading block %u\n", physical_block_number);
+		// pr_info("reading block %u\n", physical_block_number);
 		physical_block = sb_bread(sb, physical_block_number);
 
 		if (!physical_block) {
