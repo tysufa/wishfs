@@ -6,7 +6,7 @@
  */
 
 #include "linux/types.h"
-#define pr_fmt(fmt) "%s:%s: ouichefs:" fmt, KBUILD_MODNAME, __func__
+#define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -23,19 +23,17 @@ static uint32_t ouichefs_extent_get_block(struct ouichefs_extent *extents,
 	uint16_t i = 0;
 	while (i < OUICHEFS_MAX_EXTENTS && extents[i].count) {
 		uint32_t count = extents[i].count;
-		if (count < logical_block) {
+		if (count <= logical_block) {
 			logical_block -= count;
 			i++;
 			continue;
 		}
-		return extents[i].start + (count - logical_block);
+		return extents[i].start + logical_block;
 	}
-	pr_err("Did not successfully find logical_block #%u in extents.",
-	       logical_block);
 	return 0;
 }
 
-static long get_extents(struct file *file)
+static long get_extents(struct file *file, long force)
 {
 	struct buffer_head *physical_index;
 	struct super_block *sb = file->f_inode->i_sb;
@@ -55,17 +53,20 @@ static long get_extents(struct file *file)
 	while (nb_extents < OUICHEFS_MAX_EXTENTS &&
 	       extents[nb_extents].count != 0)
 		nb_extents++;
-	printk("ouichefs: extents for inode %lu: %u %s", file->f_inode->i_ino,
-	       nb_extents, nb_extents > 1 ? "extents" : "extent");
-	while (i < OUICHEFS_MAX_EXTENTS && extents[i].start != 0) {
+	printk(KERN_INFO "ouichefs: extents for inode %lu: %u %s\n",
+	       file->f_inode->i_ino, nb_extents,
+	       nb_extents > 1 ? "extents" : "extent");
+	while (i < OUICHEFS_MAX_EXTENTS && (extents[i].start != 0 || force)) {
 		uint32_t start = extents[i].start;
 		uint32_t count = extents[i].count;
-		if (count == 1)
-			printk("  [%u] start=%u count=%u (extent %u)", i, start,
-			       count, start);
+		if (count <= 1)
+			printk(KERN_INFO
+			       "  [%u] start=%u count=%u (extent %u)\n",
+			       i, start, count, start);
 		else
-			printk("  [%u] start=%u count=%u (extents %u-%u)", i,
-			       start, count, start, start + count);
+			printk(KERN_INFO
+			       "  [%u] start=%u count=%u (extents %u-%u)\n",
+			       i, start, count, start, start + count - 1);
 		i++;
 	}
 	brelse(physical_index);
@@ -165,6 +166,7 @@ ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,
 			ret = -EFAULT;
 			goto release_head_index;
 		}
+		pr_info("Reading physical block %u", physical_block);
 		buffer_block = sb_bread(sb, physical_block);
 
 		if (!buffer_block) {
@@ -241,37 +243,58 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	}
 
 	// on caste les informations du block d'index dans la struct adapté
-	// struct ouichefs_file_index_block *index_block =
-	// 	(struct ouichefs_file_index_block *)physical_index->b_data;
+	struct ouichefs_file_index_block *index_block =
+		(struct ouichefs_file_index_block *)physical_index->b_data;
 
 	while (count > 0) {
-		// uint32_t logical_block_nb = *ppos / OUICHEFS_BLOCK_SIZE;
+		uint32_t logical_block_nb = *ppos / OUICHEFS_BLOCK_SIZE;
 		uint32_t offset_in_block = *ppos % OUICHEFS_BLOCK_SIZE;
 
 		bytes_to_write = min(count, (size_t)OUICHEFS_BLOCK_SIZE -
 						    offset_in_block);
 
 		// on récupère le block qu'on veut lire
-		uint32_t physical_block_number = 0;
-		// index_block->blocks[logical_block_nb];
+		uint32_t physical_block_number = ouichefs_extent_get_block(
+			index_block->extents, logical_block_nb);
+		pr_info("Got block %u\n", physical_block_number);
 
 		if (physical_block_number == 0) {
+			pr_info("On cherche un nouveau bloc\n");
 			physical_block_number = get_free_block(sbi);
 			if (!physical_block_number) {
 				pr_err("pas de blocks disponibles pour l'écriture\n");
 				brelse(physical_index);
 				return -ENOSPC;
 			}
-			// index_block->blocks[logical_block_nb] =
-			// 	cpu_to_le32(physical_block_number);
+			file->f_inode->i_blocks++;
+			struct ouichefs_extent *extents = index_block->extents;
+			uint16_t i = 0;
+			while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
+				i++; // i se trouve sur la prochaine extent de libre
+			uint32_t next_extent = i ? (extents[i - 1].start +
+						    extents[i - 1].count) :
+						   0;
+			if (i != 0 && physical_block_number == next_extent) {
+				extents[i - 1].count++; // si le bloc est continu
+				pr_info("Nouveau bloc continu\n");
+			} else if (i >= OUICHEFS_MAX_EXTENTS) {
+				pr_err("No more space in index.\n");
+				brelse(physical_index);
+				return -ENOSPC; // on doit rajouter une extent mais on est déjà au max...
+			} else { // si on doit ajouter un nouvel extent
+				pr_info("Creating new extent in index\n");
+				extents[i].count = 1;
+				extents[i].start = physical_block_number;
+			}
 			mark_buffer_dirty(physical_index);
 		}
 
+		pr_info("reading block %u\n", physical_block_number);
 		physical_block = sb_bread(sb, physical_block_number);
 
 		if (!physical_block) {
-			// pr_err("Impossible de lire le bloc logique %u\n",
-			//        index_block->blocks[logical_block_nb]);
+			pr_err("Impossible de lire le bloc logique %u\n",
+			       physical_block_number);
 			goto release_physical_index;
 		}
 
@@ -294,11 +317,11 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	if (*ppos > file->f_inode->i_size) {
 		file->f_inode->i_size = *ppos;
 		mark_inode_dirty(file->f_inode);
-		// TODO: rajouter le file->f_inode->i_blocks ou quelque chose comme ça
 	}
 
 release_physical_index: // because some bytes might already be written
-	write_dirty_buffer(physical_index, REQ_OP_WRITE);
+	write_dirty_buffer(physical_index, REQ_OP_WRITE); // async
+	// sync_dirty_buffer(physical_index); // sync
 	brelse(physical_index);
 	return bytes_written;
 }
@@ -308,15 +331,15 @@ release_physical_index: // because some bytes might already be written
 static long ouichefs_ioctl(struct file *file, unsigned int cmd,
 			   unsigned long arg)
 {
-	if (_IOC_TYPE(cmd) != OUICHEFS_MAGIC)
-		return -1; //check that is right
+	// if (_IOC_TYPE(cmd) != OUICHEFS_MAGIC)
+	// 	return -1; //check that is right
 	//autres macros pour la gestion d'erreur, à check
 	//_IOC_DIR( cmd )
 	//_IOC_NR( cmd )
 	//_IOC_SIZE( cmd )
 	switch (cmd) {
 	case OUICHEFS_IOC_GET_EXTENTS:
-		return get_extents(file);
+		return get_extents(file, arg);
 		break;
 	default:
 		pr_warn("unknown ioctl command.");
