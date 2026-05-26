@@ -302,18 +302,20 @@ static int ouichefs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	struct super_block *sb = dir->i_sb;
 	struct ouichefs_sb_info *sbi = OUICHEFS_SB(sb);
-	struct inode *inode = d_inode(dentry);
+	struct inode *inode = d_inode(dentry); //file
+
 	struct buffer_head *bh = NULL, *bh2 = NULL;
 	struct ouichefs_dir_block *dir_block = NULL;
 	struct ouichefs_file_index_block *file_block = NULL;
+
 	uint32_t ino, bno;
 	int i, f_id = -1, nr_subs = 0;
 
-	ino = inode->i_ino;
-	bno = OUICHEFS_INODE(inode)->index_block;
+	ino = inode->i_ino; //file
+	bno = OUICHEFS_INODE(inode)->index_block; //file content
 
 	/* Read parent directory index */
-	bh = sb_bread(sb, OUICHEFS_INODE(dir)->index_block);
+	bh = sb_bread(sb, OUICHEFS_INODE(dir)->index_block); //parent
 	if (!bh)
 		return -EIO;
 	dir_block = (struct ouichefs_dir_block *)bh->b_data;
@@ -347,29 +349,39 @@ static int ouichefs_unlink(struct inode *dir, struct dentry *dentry)
 	 * forever. If we fail to scrub a data block, don't fail (too late
 	 * anyway), just put the block and continue.
 	 */
-	bh = sb_bread(sb, bno);
+	bh = sb_bread(sb, bno); //file content
 	if (!bh)
 		goto clean_inode;
 	file_block = (struct ouichefs_file_index_block *)bh->b_data;
 	if (S_ISDIR(inode->i_mode))
 		goto scrub;
-  (void) bh2;
-// 	for (i = 0; i < inode->i_blocks - 1; i++) {
-// 		char *block;
-//
-// 		if (!file_block->blocks[i])
-// 			continue;
-//
-//     bh2 = sb_bread(sb, le32_to_cpu(file_block->blocks[i]));
-// 		if (!bh2)
-// 			goto put_block;
-// 		block = (char *)bh2->b_data;
-// 		memset(block, 0, OUICHEFS_BLOCK_SIZE);
-// 		mark_buffer_dirty(bh2);
-// 		brelse(bh2);
-// put_block:
-// 		put_block(sbi, le32_to_cpu(file_block->blocks[i]));
-// 	}
+
+	//file_block belongs to a file
+	for (int ie = 0; ie < OUICHEFS_MAX_EXTENTS; ie++) {
+		char *block;
+
+		struct ouichefs_extent extent = file_block->extents[ie];
+
+		if (extent.count == 0) //end of file
+			break;
+
+		for(i=0; i<extent.count; i++){
+
+			if (extent.start == 0) //hole
+				continue;
+
+			bh2 = sb_bread(sb, le32_to_cpu(extent.start + i));
+			if (!bh2)
+				goto put_block;
+
+			block = (char *)bh2->b_data;
+			memset(block, 0, OUICHEFS_BLOCK_SIZE);
+			mark_buffer_dirty(bh2);
+			brelse(bh2);
+		put_block:
+			put_block(sbi, le32_to_cpu(extent.start + i));
+		}
+	}
 
 scrub:
 	/* Scrub index block */
