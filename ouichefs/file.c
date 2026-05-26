@@ -331,9 +331,13 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 					new_count; // si le bloc est continu
 				pr_info("Nouveau bloc continu\n");
 			} else if (i >= OUICHEFS_MAX_EXTENTS) {
-				while (new_count--)
-					brelse(physical_block_number +
-					       new_count);
+				while (new_count--) {
+					physical_block = sb_bread(
+						sb, physical_block_number +
+							    new_count);
+					if (physical_block)
+						brelse(physical_block);
+				}
 				pr_err("No more space in index.\n");
 				bytes_written = -ENOSPC;
 				goto release_physical_index;
