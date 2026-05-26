@@ -76,7 +76,7 @@ struct inode *ouichefs_iget(struct super_block *sb, unsigned long ino)
 		inode->i_fop = &ouichefs_dir_ops;
 	} else if (S_ISREG(inode->i_mode)) {
 		inode->i_fop = &ouichefs_file_ops;
-		inode->i_mapping->a_ops = &ouichefs_aops;
+		// inode->i_mapping->a_ops = &ouichefs_aops;
 	}
 
 	brelse(bh);
@@ -189,7 +189,7 @@ static struct inode *ouichefs_new_inode(struct inode *dir, mode_t mode)
 	} else if (S_ISREG(mode)) {
 		inode->i_size = 0;
 		inode->i_fop = &ouichefs_file_ops;
-		inode->i_mapping->a_ops = &ouichefs_aops;
+		// inode->i_mapping->a_ops = &ouichefs_aops;
 	}
 	set_nlink(inode, 1);
 
@@ -355,22 +355,23 @@ static int ouichefs_unlink(struct inode *dir, struct dentry *dentry)
 	file_block = (struct ouichefs_file_index_block *)bh->b_data;
 	if (S_ISDIR(inode->i_mode))
 		goto scrub;
-	for (i = 0; i < inode->i_blocks - 1; i++) {
-		char *block;
-
-		if (!file_block->blocks[i])
-			continue;
-
-    bh2 = sb_bread(sb, le32_to_cpu(file_block->blocks[i]));
-		if (!bh2)
-			goto put_block;
-		block = (char *)bh2->b_data;
-		memset(block, 0, OUICHEFS_BLOCK_SIZE);
-		mark_buffer_dirty(bh2);
-		brelse(bh2);
-put_block:
-		put_block(sbi, le32_to_cpu(file_block->blocks[i]));
-	}
+  (void) bh2;
+// 	for (i = 0; i < inode->i_blocks - 1; i++) {
+// 		char *block;
+//
+// 		if (!file_block->blocks[i])
+// 			continue;
+//
+//     bh2 = sb_bread(sb, le32_to_cpu(file_block->blocks[i]));
+// 		if (!bh2)
+// 			goto put_block;
+// 		block = (char *)bh2->b_data;
+// 		memset(block, 0, OUICHEFS_BLOCK_SIZE);
+// 		mark_buffer_dirty(bh2);
+// 		brelse(bh2);
+// put_block:
+// 		put_block(sbi, le32_to_cpu(file_block->blocks[i]));
+// 	}
 
 scrub:
 	/* Scrub index block */
