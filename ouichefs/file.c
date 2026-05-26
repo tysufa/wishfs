@@ -18,6 +18,23 @@
 #include "ouichefs.h"
 #include "bitmap.h"
 
+static uint32_t ouichefs_extent_get_block(struct ouichefs_extent *extents,
+					  uint32_t logical_block)
+{
+	uint16_t i = 0;
+	while (extents[i].count) {
+		uint32_t start = extents[i].start;
+		uint32_t count = extents[i].count;
+		if (count < logical_block) {
+			logical_block -= count;
+			i += count;
+			continue;
+		}
+		return start + (count - logical_block);
+	}
+  return 0;
+}
+
 static long get_extents(struct file *file)
 {
 	struct ouichefs_inode_info *fsiinfo = OUICHEFS_INODE(file->f_inode);
