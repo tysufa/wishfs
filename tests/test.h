@@ -1,0 +1,146 @@
+#include <errno.h> //errno
+#include <stdio.h> //fprintf, stdout
+#include <stdbool.h> //bool
+#include <string.h> //strlen
+#include <time.h> //clock
+#include <fcntl.h> //open
+
+#define s8B(c) c c c c c c c c
+#define s32B(c) s8B(c) s8B(c) s8B(c) s8B(c)
+#define s128B(c) s32B(c) s32B(c) s32B(c) s32B(c)
+
+#define s1KB(c) s128B(c) s128B(c) s128B(c) s128B(c) s128B(c) s128B(c) s128B(c) s128B(c)
+#define s4KB(c) s1KB(c) s1KB(c) s1KB(c) s1KB(c)
+#define s8KB(c) s4KB(c) s4KB(c)
+#define s32KB(c) s8KB(c) s8KB(c) s8KB(c) s8KB(c)
+#define s128KB(c) s32KB(c) s32KB(c) s32KB(c) s32KB(c)
+
+#define s1MB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c) s128KB(c)
+#define s4MB(c) s1MB(c) s1MB(c) s1MB(c) s1MB(c)
+
+#define v1KB 1 << 10
+#define v1MB 1 << 20
+
+void manage_error(int no, const char *fname, const char *fdescr){
+	if (no < 0){
+		const char *err_descr = strerror(errno);
+		fprintf(stdout, "Error in %s:%s: %s\n", fname, fdescr, err_descr);
+	}
+}
+
+void check_test(bool expr, char *err_msg){
+	if (!expr){
+		fprintf(stdout, "Test incorrect: %s.\n", err_msg);
+	}
+}
+
+bool failed(bool expr){
+	if (expr)
+		fprintf(stdout, "Test succeeded\n");
+	else
+		fprintf(stdout, "Test failed\n");
+	return !expr;
+}
+
+#define open_file(_path, _flags) \
+({ \
+	const int fd = open(_path, _flags); \
+	manage_error(fd, __func__, "open"); \
+	fd; \
+})
+
+#define close_file(_fd) \
+do { \
+	const int ret = close(_fd); \
+	manage_error(ret, __func__, "close"); \
+} while(0)
+
+#define create_file(_path) \
+do { \
+	const int fd = open(_path, O_CREAT | O_TRUNC | O_RDWR, 600); \
+	manage_error(fd, __func__, "open"); \
+	close_file(fd); \
+} while(0)
+
+#define _measure_op(_fd, _op, _sop, _s, _len) \
+({ \
+	const clock_t tstart = clock(); \
+	const ssize_t count = (_op)(_fd, _s, _len); \
+	const clock_t tend = clock(); \
+	const clock_t tdiff = (float)(tend - tstart); \
+	manage_error(count, __func__, _sop); \
+	fprintf(stdout, "- " _sop ": %ld bytes, time: %d.\n", count, tdiff); \
+	count; \
+})
+
+#define measure_write(_fd, _s, _len) \
+({ \
+	_measure_op(_fd, write, "write", _s, _len); \
+})
+
+#define measure_read(_fd, _s, _len) \
+({ \
+	_measure_op(_fd, read, "read", _s, _len); \
+})
+
+void __init_buffer_with_zeroes(char buf[], size_t len){
+	for (size_t i=0; i<len; i++)
+		buf[i] = 0;
+}
+
+void __initialize_file_to(const char *file, const char* s_init){
+	const ssize_t len_init = strlen(s_init);
+
+	const int fd_init = open_file(file, O_WRONLY);
+	const ssize_t res = measure_write(fd_init, s_init, len_init);
+	close_file(fd_init);
+}
+
+void __compare_file_to(const char *file, const char* s_final){
+	const ssize_t len_final = strlen(s_final);
+	const size_t len_read = len_final + 100;
+
+	char s_read[len_read];
+	__init_buffer_with_zeroes(s_read, len_read);
+
+	const int fd_final = open_file(file, O_RDONLY);
+	const ssize_t res = measure_read(fd_final, s_read, len_read);
+	close_file(fd_final);
+	if (failed(res == len_final)
+		|| failed(strcmp(s_read, s_final) == 0)
+	)
+		fprintf(stdout, "Should read '%s'. Read: '%s'.\n", s_final, s_read);
+}
+
+void run_test(void (*func)(const char *), char *path){
+	create_file(path);
+	func(path);
+}
+
+//written tests
+/** Writes then reads some Bytes. Tries to read larger than file size. */
+void read_write_simple(const char *file);
+
+/** Writes then reads 16KB. */
+void read_write_several_blocs(char *file);
+
+/** Writes >4MB, more than max size. */
+void write_too_big(const char* file);
+
+/** Write in the middle of a 24B file. Then read whole file. */
+void write_middle_simple(const char* file);
+
+/** Write in the middle of a 12KB file. Then read whole file. */
+void write_middle_several_blocs(const char* file);
+
+/** */
+void write_at_end_append(const char* file);
+
+/** */
+void write_at_end_no_append(const char* file);
+
+/** */
+void write_over_end(const char* file);
+
+/** */
+void write_after_end(const char* file);

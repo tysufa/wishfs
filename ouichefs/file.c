@@ -14,8 +14,6 @@
 #include <linux/buffer_head.h>
 #include <linux/mpage.h>
 
-#include <linux/ioctl.h> //ou include/uapi/asm-generic/ioctl.h ??
-
 #include "ouichefs.h"
 #include "bitmap.h"
 
