@@ -73,29 +73,31 @@ struct dentry *ouichefs_mount(struct file_system_type *fs_type, int flags,
 
 	pr_info("kobject '%s' created\n", kobj_partition_name);
 
-	create_ouichefs_sysfs(&free_blocks, dentry->d_sb, free_blocks_show,
-			      "free_blocks");
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[0], dentry->d_sb,
+			      free_blocks_show, "free_blocks");
 
-	create_ouichefs_sysfs(&files, dentry->d_sb, files_show, "files");
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[1], dentry->d_sb, files_show,
+			      "files");
 
-	create_ouichefs_sysfs(&total_extents, dentry->d_sb, total_extents_show,
-			      "total_extents");
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[3], dentry->d_sb,
+			      total_extents_show, "total_extents");
 
-	create_ouichefs_sysfs(&avg_extent_size, dentry->d_sb,
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[4], dentry->d_sb,
 			      avg_extent_size_show, "avg_extent_size");
 
-	create_ouichefs_sysfs(&max_file_size, dentry->d_sb, max_file_size_show,
-			      "max_file_size");
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[5], dentry->d_sb,
+			      max_file_size_show, "max_file_size");
 
-	create_ouichefs_sysfs(&fragmentation, dentry->d_sb, fragmentation_show,
-			      "fragmentation");
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[6], dentry->d_sb,
+			      fragmentation_show, "fragmentation");
 
-	create_ouichefs_sysfs(&commited_blocks, dentry->d_sb,
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[7], dentry->d_sb,
 			      commited_blocks_show, "commited_blocks");
 
-	create_ouichefs_sysfs(&gc_runs, dentry->d_sb, gc_runs_show, "gc_runs");
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[8], dentry->d_sb, gc_runs_show,
+			      "gc_runs");
 
-	create_ouichefs_sysfs(&reservation_size_sysfs, dentry->d_sb,
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[9], dentry->d_sb,
 			      reservation_size_show, "reservation_size");
 
 	return dentry;

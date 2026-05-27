@@ -64,6 +64,11 @@ struct ouichefs_inode_info {
 #define OUICHEFS_INODES_PER_BLOCK \
 	(OUICHEFS_BLOCK_SIZE / sizeof(struct ouichefs_inode))
 
+struct custom_attribute {
+	struct kobj_attribute attr;
+	struct super_block *sb;
+};
+
 struct ouichefs_sb_info {
 	uint32_t magic; /* Magic number */
 
@@ -82,7 +87,9 @@ struct ouichefs_sb_info {
 	unsigned long *ifree_bitmap; /* In-memory free inodes bitmap */
 	unsigned long *bfree_bitmap; /* In-memory free blocks bitmap */
 
-	struct kobject *partition_kobj;
+	struct kobject *partition_kobj; /* kobject for the partition sysfs */
+	struct custom_attribute
+		sysfs_attrs[10]; /* attributes for this partition sysfs */
 };
 
 //for extent version
