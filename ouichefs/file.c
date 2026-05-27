@@ -139,7 +139,7 @@ static long get_extents(struct file *file, long force)
 }
 
 static uint32_t write_in_hole(struct ouichefs_extent *extents,
-			      uint32_t block_number)
+			      uint32_t block_number, uint32_t futur_block)
 {
 	uint32_t hole_before = 0;
 	uint32_t hole_after = 0;
@@ -150,6 +150,13 @@ static uint32_t write_in_hole(struct ouichefs_extent *extents,
 		block_number -= extents[i].count;
 		i++;
 	}
+	uint8_t next_extent =
+		i ? (extents[i - 1].start ?
+			     (extents[i - 1].start + extents[i - 1].count) :
+			     0) :
+		    0;
+	if (i && next_extent == futur_block)
+		return i; // no change, will automatically be added to previous extent
 	hole_before = block_number;
 	hole_after = extents[i].count - (block_number + 1);
 	// at least one extent to add
@@ -162,8 +169,10 @@ static uint32_t write_in_hole(struct ouichefs_extent *extents,
 	uint16_t last = i;
 	while (last < OUICHEFS_MAX_EXTENTS && extents[last].count)
 		last++;
-	if (last == 0 || last + shift - 1 >= OUICHEFS_MAX_EXTENTS)
+	if (last == 0 || last + shift - 1 >= OUICHEFS_MAX_EXTENTS) {
+		pr_err("Could not fill hole because no more extents are available.\n");
 		return -ENOSPC; // no space
+	}
 	last--;
 	while (shift && last > i) {
 		extents[last + shift].start = extents[last].start;
@@ -398,7 +407,6 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	uint32_t bytes_written = 0;
 	uint32_t bytes_to_write = 0;
 	uint16_t i = 0;
-	uint8_t reset_reservation = 0;
 
 	if (file->f_flags & O_APPEND) {
 		*ppos = file->f_inode->i_size;
@@ -429,7 +437,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		(struct ouichefs_file_index_block *)physical_index->b_data;
 	struct ouichefs_extent *extents = index_block->extents;
 	// Gestion des trous
-	if (file->f_inode->i_size + 1 <= *ppos)
+	if (*ppos <= file->f_inode->i_size)
 		goto write_data;
 	{ // changing scope
 		uint32_t void_size = (*ppos - 1) - file->f_inode->i_size;
@@ -466,19 +474,13 @@ write_data:
 		// si on doit allouer de nouveaux blocs
 		uint32_t fill = 0;
 		if (physical_block_number == OUICHEFS_HOLE_BLOCK) {
-			fill = write_in_hole(extents, logical_block_nb);
-			if (fill & (1 << 31)) {
-				pr_err("Could not split hole open. No space.");
-				return fill;
-			}
-			if (!reset_reservation) {
-				release_extent_block(sb,
-						     fsiinfo->i_reserved_start,
-						     fsiinfo->i_reserved_count,
-						     0);
-				fsiinfo->i_reserved_count = 0;
-				reset_reservation = 1;
-			}
+			fill = 1;
+			// fill = write_in_hole(extents, logical_block_nb);
+			// if (fill & (1 << 31)) {
+			// 	pr_err("Could not split hole open. No space.");
+			// 	bytes_written = fill; // error number
+			// 	goto release_physical_index;
+			// }
 			physical_block_number = 0;
 		} else if (physical_block_number)
 			goto block_number_found;
@@ -517,9 +519,24 @@ write_data:
 		DEC_NR(new_count);
 		if (!physical_block_number || !new_count) {
 			pr_err("pas de blocks disponibles pour l'écriture\n");
+			if (physical_block_number)
+				put_block(sbi,
+					  le32_to_cpu(physical_block_number));
 			bytes_written = -ENOSPC;
 			goto release_physical_index;
 		}
+		if (fill) { // si on doit fill un hole
+			fill = write_in_hole(extents, logical_block_nb,
+					     physical_block_number);
+			if (fill & (1 << 31)) {
+				pr_err("Could not split hole open. No space.");
+				put_block(sbi,
+					  le32_to_cpu(physical_block_number));
+				bytes_written = fill; // error number
+				goto release_physical_index;
+			}
+		}
+
 		file->f_inode->i_blocks += new_count;
 		SET_ALLOC;
 		i = 0;
