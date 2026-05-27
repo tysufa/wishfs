@@ -1,4 +1,3 @@
-#include "linux/bitmap.h"
 #include "linux/buffer_head.h"
 #include "linux/container_of.h"
 #include "linux/fs.h"
@@ -36,8 +35,11 @@ static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
 	struct super_block *sb = attributes->sb;
 
 	struct buffer_head *bh;
+	struct buffer_head *bh_index;
 	unsigned long total_files = 0;
 	unsigned long total_dir = 0;
+
+	unsigned long nr_extent = 0;
 	u32 block_nr;
 
 	u32 current_inode_index = 0;
@@ -45,6 +47,9 @@ static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
 	// l'inode store est présent sur le bloc 1
 	u32 istore_start_block = 1;
 	u32 istore_end_block = istore_start_block + sbi->nr_istore_blocks;
+
+	__le32 inode_index;
+	struct ouichefs_file_index_block *index_block;
 
 	// on parcourt tous les block istore
 	for (block_nr = istore_start_block; block_nr < istore_end_block;
@@ -67,6 +72,25 @@ static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
 				} else if (S_ISDIR(inode_store_block[i].i_mode)) {
 					total_dir++;
 				}
+
+				inode_index = inode_store_block[i].index_block;
+
+				bh_index = sb_bread(sb, inode_index);
+				index_block =
+					(struct ouichefs_file_index_block *)
+						bh_index->b_data;
+
+				// Parcourt des extents de cet inode
+				for (size_t i = 0; i < OUICHEFS_MAX_EXTENTS;
+				     i++) {
+					if (index_block->extents[i].count ==
+					    0) {
+						break;
+					}
+					nr_extent++;
+				}
+
+				brelse(bh_index);
 			}
 			current_inode_index++; // On avance l'index global
 		}
@@ -74,9 +98,10 @@ static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
 		brelse(bh);
 	}
 
-	return sysfs_emit(buf,
-			  "Number of files: %lu\n Number of directory : %lu\n",
-			  total_files, total_dir);
+	return sysfs_emit(
+		buf,
+		"Number of files: %lu\n Number of directory : %lu\n Number of extents : %lu",
+		total_files, total_dir, nr_extent);
 }
 
 struct custom_attribute free_blocks;
