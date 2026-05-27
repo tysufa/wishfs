@@ -177,6 +177,10 @@ static ssize_t commited_blocks_show(struct kobject *kobj,
 		brelse(bh);
 	}
 
+	pr_info("bitmap weight : %d\nreserved_blocks : %d\n",
+		bitmap_weight(local_bitmap, sbi->nr_blocks),
+		sbi->nr_blocks - bitmap_weight(local_bitmap, sbi->nr_blocks));
+
 	kfree(local_bitmap);
 
 	return sysfs_emit(buf, "Number of commited blocks : %d\n",
