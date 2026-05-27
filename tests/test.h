@@ -22,7 +22,7 @@
 #define v1KB (1 << 10)
 #define v1MB (1 << 20)
 
-#define PATH "./test_"
+#define PATH "/mnt/test_mnt/test_"
 
 void manage_error(int no, const char *fname, const char *fdescr){
 	if (no < 0){
