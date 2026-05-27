@@ -3,6 +3,7 @@
 #include "linux/container_of.h"
 #include "linux/fs.h"
 #include "linux/pagemap.h"
+#include "linux/printk.h"
 #include "linux/writeback.h"
 #include "ouichefs.h"
 #include <linux/sysfs.h>
@@ -57,7 +58,7 @@ static ssize_t free_blocks_show(struct kobject *kobj,
 
 bool in_interval(uint32_t block, uint32_t extent_start, uint32_t extent_count)
 {
-	if (extent_start <= block && extent_start + extent_count >= block)
+	if (extent_start <= block && extent_start + extent_count - 1 >= block)
 		return true;
 	else
 		return false;
