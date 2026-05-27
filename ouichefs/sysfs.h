@@ -1,6 +1,8 @@
 #include "linux/buffer_head.h"
 #include "linux/container_of.h"
 #include "linux/fs.h"
+#include "linux/pagemap.h"
+#include "linux/writeback.h"
 #include "ouichefs.h"
 #include <linux/sysfs.h>
 #include <linux/kobject.h>
@@ -18,11 +20,27 @@ static ssize_t free_blocks_show(struct kobject *kobj,
 
 	struct ouichefs_sb_info *sbi = OUICHEFS_SB(attributes->sb);
 
-	uint32_t nr_free_blocks = 0;
-	if (sbi)
-		nr_free_blocks = sbi->nr_free_blocks;
+	unsigned long *bfree_bitmap = sbi->bfree_bitmap;
 
-	return sysfs_emit(buf, "Number of free blocks : %d\n", nr_free_blocks);
+	unsigned long free_block =
+		find_next_bit(bfree_bitmap, sbi->nr_blocks, 0);
+
+	uint32_t nr_free_blocks_sbi = 0;
+	uint32_t nr_free_blocks = 0;
+
+	while (free_block != sbi->nr_blocks) {
+		nr_free_blocks++;
+		free_block = find_next_bit(bfree_bitmap, sbi->nr_blocks,
+					   free_block + 1);
+	}
+
+	if (sbi)
+		nr_free_blocks_sbi = sbi->nr_free_blocks;
+
+	return sysfs_emit(
+		buf,
+		"Number of free blocks sbi : %d, Number of free blocks bitmap : %d\n",
+		nr_free_blocks_sbi, nr_free_blocks);
 }
 
 static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
@@ -50,6 +68,14 @@ static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
 
 	__le32 inode_index;
 	struct ouichefs_file_index_block *index_block;
+
+	// -- FLUSH DES INODES DIRTY EN MEMOIRE
+	struct inode *inode;
+	struct inode *tmp;
+
+	list_for_each_entry_safe(inode, tmp, &sb->s_inodes, i_sb_list) {
+		write_inode_now(inode, WB_SYNC_ALL);
+	}
 
 	// on parcourt tous les block istore
 	for (block_nr = istore_start_block; block_nr < istore_end_block;

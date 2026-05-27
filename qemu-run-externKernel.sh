@@ -1,5 +1,3 @@
-#! /bin/bash
-
 # Fix the paths if necessary
 HDA="-drive file=pnl-tp-2021.img,format=raw"
 HDB="-drive file=myHome.img,format=raw"
