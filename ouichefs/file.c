@@ -119,7 +119,7 @@ static long get_extents(struct file *file, long force)
 	printk(KERN_INFO "  reserved start: %u count: %u\n",
 	       fsiinfo->i_reserved_start, fsiinfo->i_reserved_count);
 
-	while (i < OUICHEFS_MAX_EXTENTS && (extents[i].start != 0 || force)) {
+	while (i < OUICHEFS_MAX_EXTENTS && (extents[i].count != 0 || force)) {
 		uint32_t start = extents[i].start;
 		uint32_t count = extents[i].count;
 
