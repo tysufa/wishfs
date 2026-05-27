@@ -336,6 +336,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	uint32_t nr_allocs = 0;
 	uint32_t bytes_written = 0;
 	uint32_t bytes_to_write = 0;
+  uint16_t i = 0;
 
 	if (file->f_flags & O_APPEND) {
 		*ppos = file->f_inode->i_size;
@@ -365,9 +366,29 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	struct ouichefs_file_index_block *index_block =
 		(struct ouichefs_file_index_block *)physical_index->b_data;
 	struct ouichefs_extent *extents = index_block->extents;
+	// Gestion des trous
+	if (file->f_inode->i_size + 1 <= *ppos)
+		goto write_data;
+	{ // changing scope
+		uint32_t void_size = (*ppos - 1) - file->f_inode->i_size;
+		void_size -= file->f_inode->i_size % OUICHEFS_BLOCK_SIZE;
+		// removing 0s already in last block but not written.
+		uint32_t void_blocks = void_size / OUICHEFS_BLOCK_SIZE;
+		i = 0;
+		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
+			i++; // i se trouve sur la prochaine extent de libre
+		if (i >= OUICHEFS_MAX_EXTENTS)
+			goto release_physical_index;
+		if (i != 0 && extents[i - 1].start == 0)
+			i--;
+		extents[i].start = 0;
+		extents[i].count = void_blocks;
+		DEC_NR(void_blocks);
+	}
 
+write_data:
 	while (count > 0) {
-		uint16_t i = 0;
+		i = 0;
 		uint32_t next_extent = 0;
 		uint32_t logical_block_nb = *ppos / OUICHEFS_BLOCK_SIZE;
 		uint32_t offset_in_block = *ppos % OUICHEFS_BLOCK_SIZE;
