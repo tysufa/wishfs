@@ -17,6 +17,30 @@
 uint32_t reservation_size = 8;
 module_param(reservation_size, uint, 0644);
 
+int create_ouichefs_sysfs(struct custom_attribute *filesystem,
+			  struct super_block *sb,
+			  ssize_t (*show)(struct kobject *kobj,
+					  struct kobj_attribute *attr,
+					  char *buf),
+			  const char *name)
+{
+	int ret;
+
+	filesystem->sb = sb;
+	filesystem->attr.attr.name = name;
+	filesystem->attr.attr.mode = 0400;
+	filesystem->attr.show = show;
+	filesystem->attr.store = NULL;
+
+	ret = sysfs_create_file(partition_kobj, &filesystem->attr.attr);
+	if (ret)
+		pr_err("failed to create sysfs '%s'\n", name);
+	else
+		pr_info("sysfs '%s' created \n", name);
+
+	return ret;
+}
+
 /*
  * Mount a ouiche_fs partition
  */
@@ -25,7 +49,6 @@ struct dentry *ouichefs_mount(struct file_system_type *fs_type, int flags,
 {
 	struct dentry *dentry = NULL;
 	char kobj_partition_name[64];
-	int ret;
 
 	dentry =
 		mount_bdev(fs_type, flags, dev_name, data, ouichefs_fill_super);
@@ -47,39 +70,31 @@ struct dentry *ouichefs_mount(struct file_system_type *fs_type, int flags,
 
 	pr_info("kobject '%s' created\n", kobj_partition_name);
 
-	// --- FREE_BLOCKS ---
-	struct kobj_attribute free_blocks_attr =
-		__ATTR(free_blocks, 0400, free_blocks_show, NULL);
+	create_ouichefs_sysfs(&free_blocks, dentry->d_sb, free_blocks_show,
+			      "free_blocks");
 
-	free_blocks.sb = dentry->d_sb;
-	free_blocks.attr = free_blocks_attr;
+	create_ouichefs_sysfs(&files, dentry->d_sb, files_show, "files");
 
-	ret = sysfs_create_file(partition_kobj, &free_blocks.attr.attr);
-	if (ret) {
-		pr_err("failed to create sysfs 'free_blocks'\n");
-		goto failed_sysfs_file;
-	}
-	pr_info("sysfs 'free_blocks' created in '%s'\n", kobj_partition_name);
+	create_ouichefs_sysfs(&total_extents, dentry->d_sb, total_extents_show,
+			      "total_extents");
 
-	// --- NUMBER OF FILES ---
-	struct kobj_attribute nr_files_attr =
-		__ATTR(files, 0400, files_show, NULL);
+	create_ouichefs_sysfs(&avg_extent_size, dentry->d_sb,
+			      avg_extent_size_show, "avg_extent_size");
 
-	files.sb = dentry->d_sb;
-	files.attr = nr_files_attr;
-	ret = sysfs_create_file(partition_kobj, &files.attr.attr);
-	if (ret) {
-		pr_err("failed to create sysfs 'files'\n");
-		goto failed_sysfs_file;
-	}
-	pr_info("sysfs 'files' created in '%s'\n", kobj_partition_name);
+	create_ouichefs_sysfs(&max_file_size, dentry->d_sb, max_file_size_show,
+			      "max_file_size");
+
+	create_ouichefs_sysfs(&fragmentation, dentry->d_sb, fragmentation_show,
+			      "fragmentation");
+
+	create_ouichefs_sysfs(&fragmentation, dentry->d_sb,
+			      commited_blocks_show, "commited_blocks");
 
 	return dentry;
 
 failed_sysfs_kobject:
 	pr_err("failed to create sysfs kobject for '%s'\n", dev_name);
 
-failed_sysfs_file:
 	if (IS_ERR(dentry))
 		pr_err("'%s' mount failure\n", dev_name);
 	else
