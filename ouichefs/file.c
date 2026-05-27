@@ -22,7 +22,9 @@ void garbage_collection(struct super_block *sb, uint32_t target)
 {
 	struct inode *inode;
 	uint32_t early_stop = 0;
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(sb);
 
+	sbi->nr_gc_pass++;
 	spin_lock(&sb->s_inode_list_lock);
 	list_for_each_entry(inode, &sb->s_inodes, i_sb_list) {
 		spin_lock(&inode->i_lock);
