@@ -418,7 +418,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 			bytes_written = -ENOSPC;
 			goto release_physical_index;
 		}
-		file->f_inode->i_blocks += new_count; // TODO: la valeur n'est pas juste
+		file->f_inode->i_blocks += new_count;
 		SET_ALLOC;
 		i = 0;
 		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
