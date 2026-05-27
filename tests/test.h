@@ -22,7 +22,7 @@
 #define v1KB (1 << 10)
 #define v1MB (1 << 20)
 
-#define PATH "/mnt/test_mnt/test_"
+#define PATH "/mnt/test_mnt/t_"
 
 void manage_error(int no, const char *fname, const char *fdescr){
 	if (no < 0){
@@ -115,7 +115,7 @@ void __compare_file_to(const char *file, const char* s_final){
 	const ssize_t res = measure_read(fd_final, s_read, len_read);
 	close_file(fd_final);
 	if (failed(res == len_final)
-		|| failed(strcmp(s_read, s_final) == 0)
+		|| failed(memcmp(s_read, s_final, res) == 0)
 	)
 		fprintf(stdout, "Should read '%s'. Read: '%s'.\n", s_final, s_read);
 }

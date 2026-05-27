@@ -219,7 +219,7 @@ void write_over_end(const char *file){
 	__compare_file_to(file, s8B("a") s8B("b") s8B("b"));
 }
 
-void create_sparse(const char *file){
+void create_sparse_AHB(const char *file){
 	fprintf(stdout, "--- Test creating a hole in a file. ---\n");
 
 	ssize_t res;
@@ -264,9 +264,10 @@ void create_sparse(const char *file){
 		if (failed(s_read[i] == 'b'))
 			fprintf(stdout, "Should read 'b'. Read: '%c'.\n", s_read[i]);
 	}
+	__compare_file_to(file, s8B("a") s8B("\0") s8B("b"));
 }
 
-void write_sparse(const char *file){
+void write_sparse_ABCD(const char *file){
 	fprintf(stdout, "--- Writing in a hole in a file. ---\n");
 
 	ssize_t res;
@@ -301,6 +302,188 @@ void write_sparse(const char *file){
 	close_file(fd_write);
 
 	__compare_file_to(file, s1KB("a") s1KB("a") s4KB("b") s4KB("c") s4KB("c") s1KB("d") s1KB("d"));
+}
+
+void write_sparse_BHA(const char *file){
+	fprintf(stdout, "--- Writing in a hole in a file. ---\n");
+
+	ssize_t res;
+	char *s_write;
+	ssize_t len_write;
+
+	const int fd_write = open_file(file, O_WRONLY);
+
+	//write A
+	lseek(fd_write, v1KB*4 * 2, SEEK_SET);
+	s_write = s4KB("a");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write B
+	lseek(fd_write, 0, SEEK_SET);
+	s_write = s4KB("b");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	close_file(fd_write);
+
+	__compare_file_to(file, s4KB("b") s4KB("\0") s4KB("a"));
+}
+
+void write_sparse_ACHHB(const char *file){
+	fprintf(stdout, "--- Writing A C _ _ B. ---\n");
+
+	ssize_t res;
+	char *s_write;
+	ssize_t len_write;
+
+	const int fd_write = open_file(file, O_WRONLY);
+
+	//write A
+	s_write = s4KB("a");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write B
+	lseek(fd_write, v1KB*4 * 4, SEEK_SET);
+	s_write = s4KB("b");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write C
+	lseek(fd_write, v1KB*4, SEEK_SET);
+	s_write = s4KB("c");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	close_file(fd_write);
+
+	__compare_file_to(file, s4KB("a") s4KB("c") s4KB("\0") s4KB("\0") s4KB("b"));
+}
+
+void write_sparse_AHCHB(const char *file){
+	fprintf(stdout, "--- Writing A _ C _ B. ---\n");
+
+	ssize_t res;
+	char *s_write;
+	ssize_t len_write;
+
+	const int fd_write = open_file(file, O_WRONLY);
+
+	//write A
+	s_write = s4KB("a");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write B
+	lseek(fd_write, v1KB*4 * 4, SEEK_SET);
+	s_write = s4KB("b");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write C
+	lseek(fd_write, v1KB*4 * 2, SEEK_SET);
+	s_write = s4KB("c");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	close_file(fd_write);
+
+	__compare_file_to(file, s4KB("a") s4KB("\0") s4KB("c") s4KB("\0") s4KB("b"));
+}
+
+void write_sparse_AHHCB(const char *file){
+	fprintf(stdout, "--- Writing A _ _ C B. ---\n");
+
+	ssize_t res;
+	char *s_write;
+	ssize_t len_write;
+
+	const int fd_write = open_file(file, O_WRONLY);
+
+	//write A
+	s_write = s4KB("a");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write B
+	lseek(fd_write, v1KB*4 * 4, SEEK_SET);
+	s_write = s4KB("b");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write C
+	lseek(fd_write, v1KB*4 * 3, SEEK_SET);
+	s_write = s4KB("c");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	close_file(fd_write);
+
+	__compare_file_to(file, s4KB("a") s4KB("\0") s4KB("\0") s4KB("c") s4KB("b"));
+}
+
+void write_sparse_AHhChHB(const char *file){
+	fprintf(stdout, "--- Writing A _ -c c- _ _ B. ---\n");
+
+	ssize_t res;
+	char *s_write;
+	ssize_t len_write;
+
+	const int fd_write = open_file(file, O_WRONLY);
+
+	//write A
+	s_write = s4KB("a");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write B
+	lseek(fd_write, v1KB*4 * 6, SEEK_SET);
+	s_write = s4KB("b");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write C
+	lseek(fd_write, v1KB*4 * 2 + v1KB*2, SEEK_SET);
+	s_write = s4KB("c");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	close_file(fd_write);
+
+	__compare_file_to(file, s4KB("a") s4KB("\0") s1KB("\0") s1KB("\0") s4KB("c") s1KB("\0") s1KB("\0") s4KB("\0") s4KB("\0") s4KB("b"));
+}
+
+
+void write_sparse_AHhCChB(const char *file){
+	fprintf(stdout, "--- Writing A _ -c C c- _ B. ---\n");
+
+	ssize_t res;
+	char *s_write;
+	ssize_t len_write;
+
+	const int fd_write = open_file(file, O_WRONLY);
+
+	//write A
+	s_write = s4KB("a");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write B
+	lseek(fd_write, v1KB*4 * 6, SEEK_SET);
+	s_write = s4KB("b");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	//write C
+	lseek(fd_write, v1KB*4 * 2 + v1KB*2, SEEK_SET);
+	s_write = s4KB("c");
+	len_write = strlen(s_write);
+	res = measure_write(fd_write, s_write, len_write);
+
+	close_file(fd_write);
+
+	__compare_file_to(file, s4KB("a") s4KB("\0") s1KB("\0") s1KB("\0") s4KB("c") s4KB("c") s1KB("\0") s1KB("\0") s4KB("\0") s4KB("b"));
 }
 
 void read_trunc_several_blocks(const char *file){
@@ -351,10 +534,25 @@ int main(int argc, char* argv[]){
 	run_test(write_over_end, PATH "over_end");
 
 	/** Write after the end of a file. Read in the hole. */
-	run_test(create_sparse, PATH "create_sparse");
+	run_test(create_sparse_AHB, PATH "create_sparse");
 
 	/** Write in the middle of a hole, over a block, then at the beginning of the hole to fill the file again. */
-	run_test(write_sparse, PATH "write_sparse");
+	run_test(write_sparse_ABCD, PATH "write_sparse");
+
+	/** Write _ _ A, then B _ A. */
+	_ _ A
+	B _ A
+	A _ _ _ B
+	A _ C _ B
+	ou
+	A _ _ C B
+	ou
+	A C _ _ B
+
+	A _ _ _ _ _ B
+	A _ .C. _ _ B
+	ou
+	A _ _ .C. _ B
 
 	/** Write in a file then open it with O_TRUNC. */
 	run_test(read_trunc_several_blocks, PATH "trunc");
