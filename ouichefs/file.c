@@ -52,6 +52,8 @@ void release_extent_block(struct super_block *sb, uint32_t start,
 	struct buffer_head *bh = NULL;
 	char *block;
 	uint32_t block_number = start;
+	if (!start)
+		return;
 
 	while (block_number < start + count) {
 		if (clean) {
@@ -345,7 +347,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	uint32_t nr_allocs = 0;
 	uint32_t bytes_written = 0;
 	uint32_t bytes_to_write = 0;
-  uint16_t i = 0;
+	uint16_t i = 0;
 
 	if (file->f_flags & O_APPEND) {
 		*ppos = file->f_inode->i_size;
