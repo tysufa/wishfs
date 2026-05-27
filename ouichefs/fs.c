@@ -61,8 +61,8 @@ struct dentry *ouichefs_mount(struct file_system_type *fs_type, int flags,
 	const char *base_name = strrchr(dev_name, '/');
 	base_name = base_name ? base_name + 1 : dev_name;
 
-	snprintf(kobj_partition_name, sizeof(kobj_partition_name),
-		 "partition_%s", base_name);
+	snprintf(kobj_partition_name, sizeof(kobj_partition_name), "%s",
+		 base_name);
 
 	struct ouichefs_sb_info *sbi = OUICHEFS_SB(dentry->d_sb);
 	sbi->partition_kobj =
