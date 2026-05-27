@@ -8,3 +8,4 @@ compile_commands.json
 *.ko
 share
 share/**
+test2.img

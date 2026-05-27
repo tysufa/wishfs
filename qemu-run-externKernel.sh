@@ -2,6 +2,7 @@
 HDA="-drive file=pnl-tp-2021.img,format=raw"
 HDB="-drive file=myHome.img,format=raw"
 HDC="-drive file=test.img,format=raw"
+HDD="-drive file=test2.img,format=raw"
 SHARED="./share"
 
 KERNEL_VERSION="6.5.7"
@@ -20,7 +21,7 @@ FLAGS="--enable-kvm "
 VIRTFS+=" --virtfs local,path=${SHARED},mount_tag=share,security_model=passthrough,id=share "
 
 exec qemu-system-x86_64 ${FLAGS} \
-     ${HDA} ${HDB} ${HDC} \
+     ${HDA} ${HDB} ${HDC} ${HDD} \
      ${VIRTFS} \
      -net user -net nic \
      -serial mon:stdio -gdb tcp::1234,server,nowait \

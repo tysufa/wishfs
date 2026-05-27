@@ -23,13 +23,14 @@ kconfig=$(kdir)/.config
 
 ouichefsdir=./ouichefs
 test_disk=./test.img
+test_disk2=./test2.img
 mkfs=./ouichefs/mkfs/mkfs.ouichefs
 
 home_disk=./myHome.img
 boot_disk=./pnl-tp-2021.img
 share=./share
 
-all: ouichefs $(boot_disk) $(home_disk) $(share) $(test_disk)
+all: ouichefs $(boot_disk) $(home_disk) $(share) $(test_disk) $(test_disk2)
 
 ouichefs: kernel $(test_disk)
 	$(MAKE) -C $(ouichefsdir) KERNELDIR=../$(kdir)
@@ -42,13 +43,20 @@ kernel: $(kconfig)
 $(kconfig):
 	cp ./config-lkp $(kconfig)
 
+clean_disk:
+	rm -f $(test_disk) $(test_disk2)
+
 clean:
 	$(MAKE) -C $(kdir) clean
-	rm -f $(test_disk) $(myHome)
+	rm -f $(test_disk) $(test_disk2) $(myHome)
 
 $(test_disk): $(mkfs)
 	dd if=/dev/zero of=$(test_disk) bs=1M count=50
 	$(mkfs) $(test_disk)
+
+$(test_disk2): $(mkfs)
+	dd if=/dev/zero of=$(test_disk2) bs=1M count=42
+	$(mkfs) $(test_disk2)
 
 $(home_disk):
 	dd if=/dev/zero of=$(home_disk) bs=1M count=50
