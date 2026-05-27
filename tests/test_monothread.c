@@ -305,7 +305,7 @@ void write_sparse_ABCD(const char *file){
 }
 
 void write_sparse_BHA(const char *file){
-	fprintf(stdout, "--- Writing in a hole in a file. ---\n");
+	fprintf(stdout, "--- Writing B _ A. ---\n");
 
 	ssize_t res;
 	char *s_write;
@@ -423,7 +423,7 @@ void write_sparse_AHHCB(const char *file){
 	__compare_file_to(file, s4KB("a") s4KB("\0") s4KB("\0") s4KB("c") s4KB("b"));
 }
 
-void write_sparse_AHhChHB(const char *file){
+void write_sparse_AHhChHHB(const char *file){
 	fprintf(stdout, "--- Writing A _ -c c- _ _ B. ---\n");
 
 	ssize_t res;
@@ -455,7 +455,7 @@ void write_sparse_AHhChHB(const char *file){
 }
 
 
-void write_sparse_AHhCChB(const char *file){
+void write_sparse_AHhCChHB(const char *file){
 	fprintf(stdout, "--- Writing A _ -c C c- _ B. ---\n");
 
 	ssize_t res;
@@ -537,25 +537,28 @@ int main(int argc, char* argv[]){
 	run_test(create_sparse_AHB, PATH "create_sparse");
 
 	/** Write in the middle of a hole, over a block, then at the beginning of the hole to fill the file again. */
-	run_test(write_sparse_ABCD, PATH "write_sparse");
+	run_test(write_sparse_ABCD, PATH "write_sparse_ABCD");
 
 	/** Write _ _ A, then B _ A. */
-	_ _ A
-	B _ A
-	A _ _ _ B
-	A _ C _ B
-	ou
-	A _ _ C B
-	ou
-	A C _ _ B
+	run_test(write_sparse_BHA, PATH "write_sparse_BHA");
 
-	A _ _ _ _ _ B
-	A _ .C. _ _ B
-	ou
-	A _ _ .C. _ B
+	/** Write A C _ _ B. */
+	//run_test(write_sparse_ACHHB, PATH "write_sparse_ACHHB");
+
+	/** Write A _ C _ B. */
+	//run_test(write_sparse_AHCHB, PATH "write_sparse_AHCHB");
+
+	/** Write A _ _ C B. */
+	//run_test(write_sparse_AHHCB, PATH "write_sparse_AHHCB");
+
+	/** Write A _ -c c- _ _ B. */
+	//run_test(write_sparse_AHhChHHB, PATH "write_sparse_AHhChHHB");
+
+	/** Write A _ -c C -c _ B. */
+	//run_test(write_sparse_AHhCChHB, PATH "write_sparse_AHhCChHB");
 
 	/** Write in a file then open it with O_TRUNC. */
-	run_test(read_trunc_several_blocks, PATH "trunc");
+	//run_test(read_trunc_several_blocks, PATH "trunc");
 
 	return EXIT_SUCCESS;
 }

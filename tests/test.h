@@ -77,9 +77,9 @@ do { \
 	} \
 	const clock_t tend = clock(); \
 	const clock_t tdiff = (float)(tend - tstart); \
-	const size_t nb_read = res < 0 ? res : offset; \
-	fprintf(stdout, "- " _sop ": %ld bytes, time: %d.\n", nb_read, tdiff); \
-	nb_read; \
+	const size_t nb_op = res < 0 ? res : offset; \
+	fprintf(stdout, "- " _sop ": %ld bytes, time: %d.\n", nb_op, tdiff); \
+	nb_op; \
 })
 
 #define measure_write(_fd, _s, _len) \
@@ -115,7 +115,7 @@ void __compare_file_to(const char *file, const char* s_final){
 	const ssize_t res = measure_read(fd_final, s_read, len_read);
 	close_file(fd_final);
 	if (failed(res == len_final)
-		|| failed(memcmp(s_read, s_final, res) == 0)
+		|| failed(memcmp(s_read, s_final, len_final) == 0)
 	)
 		fprintf(stdout, "Should read '%s'. Read: '%s'.\n", s_final, s_read);
 }
