@@ -120,6 +120,31 @@ void __compare_file_to(const char *file, const char* s_final){
 		fprintf(stdout, "Should read '%s'. Read: '%s'.\n", s_final, s_read);
 }
 
+void print_diff_hybrid(const char *label_a, const unsigned char *a,
+                       const char *label_b, const unsigned char *b, size_t len) {
+    printf("Index | Diff | %-20s | %-20s\n", label_a, label_b);
+    printf("------------------------------------------------------------------\n");
+
+    for (size_t i = 0; i < len; i++) {
+        // Détection de la différence
+        char diff_marker = (a[i] == b[i]) ? ' ' : 'X';
+
+        // Formatage pour la colonne A
+        char hex_a[10], char_a;
+        sprintf(hex_a, "%02x", a[i]);
+        char_a = isprint(a[i]) ? a[i] : '.';
+
+        // Formatage pour la colonne B
+        char hex_b[10], char_b;
+        sprintf(hex_b, "%02x", b[i]);
+        char_b = isprint(b[i]) ? b[i] : '.';
+
+        // Affichage de la ligne
+        printf("%05zu |  %c   | 0x%s [%c]          | 0x%s [%c]\n",
+               i, diff_marker, hex_a, char_a, hex_b, char_b);
+    }
+}
+
 void run_test(void (*func)(const char *), char *path){
 	//stocker free blocks (1) //TODO
 	create_file(path);
