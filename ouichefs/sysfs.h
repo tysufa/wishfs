@@ -40,16 +40,15 @@ static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
 	unsigned long total_dir = 0;
 	u32 block_nr;
 
-	// Calcul du nombre d'inodes par bloc de votre système de fichiers
 	u32 current_inode_index = 0;
 
-	// D'après votre layout, l'inode store commence au bloc 1 (le superblock étant au bloc 0)
+	// l'inode store est présent sur le bloc 1
 	u32 istore_start_block = 1;
 	u32 istore_end_block = istore_start_block + sbi->nr_istore_blocks;
 
+	// on parcourt tous les block istore
 	for (block_nr = istore_start_block; block_nr < istore_end_block;
 	     block_nr++) {
-		// 1. Lecture du bloc depuis le périphérique vers le cache du noyau
 		bh = sb_bread(sb, block_nr);
 		if (!bh) {
 			pr_err("ouichefs: Impossible de lire le bloc d'inodes %u\n",
@@ -57,32 +56,21 @@ static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
 			continue;
 		}
 
-		struct ouichefs_inode *dip =
+		struct ouichefs_inode *inode_store_block =
 			(struct ouichefs_inode *)bh->b_data;
 
-		// 2. Parcours de tous les inodes contenus dans ce bloc
+		// on parcourt tous les inodes du block
 		for (size_t i = 0; i < OUICHEFS_INODES_PER_BLOCK; i++) {
-			// Un inode avec un mode à 0 est considéré comme libre/inutilisé
-			if (dip[i].i_mode != 0) {
-				if (S_ISREG(dip[i].i_mode)) {
+			if (inode_store_block[i].i_mode != 0) {
+				if (S_ISREG(inode_store_block[i].i_mode)) {
 					total_files++;
-				} else if (S_ISDIR(dip[i].i_mode)) {
+				} else if (S_ISDIR(inode_store_block[i].i_mode)) {
 					total_dir++;
 				}
-
-				// VOILA VOTRE INDEX !
-				// u32 fichier_index = current_inode_index;
-
-				// pr_info("ouichefs: Fichier valide trouvé à l'index %u\n", fichier_index);
-
-				/* * C'est ici que vous pourrez faire vos "autres raisons plus tard"
-                 * en manipulant directement dip[i] (les métadonnées du fichier).
-                 */
 			}
 			current_inode_index++; // On avance l'index global
 		}
 
-		// 3. Toujours libérer le buffer_head après utilisation
 		brelse(bh);
 	}
 
