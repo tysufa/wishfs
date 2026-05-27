@@ -547,6 +547,25 @@ static ssize_t fragmentation_show(struct kobject *kobj,
 			  avg_extent_per_file);
 }
 
+static ssize_t gc_runs_show(struct kobject *kobj, struct kobj_attribute *attr,
+			    char *buf)
+{
+	struct custom_attribute *attributes =
+		container_of(attr, struct custom_attribute, attr);
+
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(attributes->sb);
+
+	return sysfs_emit(buf, "Number of GC since mount : %d\n",
+			  sbi->nr_gc_pass);
+}
+
+static ssize_t reservation_size_show(struct kobject *kobj,
+				     struct kobj_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "Number of GC since mount : %d\n",
+			  reservation_size);
+}
+
 struct custom_attribute free_blocks;
 struct custom_attribute files;
 struct custom_attribute total_extents;
@@ -554,6 +573,8 @@ struct custom_attribute avg_extent_size;
 struct custom_attribute max_file_size;
 struct custom_attribute fragmentation;
 struct custom_attribute commited_blocks;
+struct custom_attribute gc_runs;
+struct custom_attribute reservation_size_sysfs;
 
 struct kobject *ouichefs_kobj;
 struct kobject *partition_kobj;

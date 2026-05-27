@@ -90,6 +90,11 @@ struct dentry *ouichefs_mount(struct file_system_type *fs_type, int flags,
 	create_ouichefs_sysfs(&fragmentation, dentry->d_sb,
 			      commited_blocks_show, "commited_blocks");
 
+	create_ouichefs_sysfs(&gc_runs, dentry->d_sb, gc_runs_show, "gc_runs");
+
+	create_ouichefs_sysfs(&reservation_size_sysfs, dentry->d_sb,
+			      reservation_size_show, "reservation_size");
+
 	return dentry;
 
 failed_sysfs_kobject:
