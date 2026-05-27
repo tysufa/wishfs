@@ -226,6 +226,7 @@ uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
 
 	// TODO: rajouter un lock pour pas se faire manger des blocks pendant qu'on clear
 	bitmap_clear(bfree_bitmap, first_free_bloc_contiguous, block_allocated);
+	sbi->nr_free_blocks -= block_allocated;
 
 	*block = first_free_bloc_contiguous;
 
