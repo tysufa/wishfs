@@ -182,7 +182,7 @@ static int ouichefs_open(struct inode *inode, struct file *file)
 }
 
 uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
-				   uint32_t *block)
+				   uint32_t *block, uint32_t next)
 {
 	struct ouichefs_sb_info *sbi = sb->s_fs_info;
 
@@ -193,6 +193,7 @@ uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
 	unsigned long current_free_block = first_free_bloc_contiguous;
 	unsigned long last_free_bloc = current_free_block;
 	uint32_t block_allocated = 0;
+	uint32_t max_blocks_found = 0;
 
 	while (current_free_block != sbi->nr_blocks &&
 	       block_allocated < requested) {
@@ -203,7 +204,15 @@ uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
 			// pr_info("current_free_block : %lu, last_free_bloc : %lu\n",
 			// current_free_block, last_free_bloc);
 
-			first_free_bloc_contiguous = current_free_block;
+			if (next && current_free_block == next) {
+				first_free_bloc_contiguous = current_free_block;
+				max_blocks_found = block_allocated;
+				break; // sortie pour continuer le précédent
+			}
+			if (max_blocks_found < block_allocated) {
+				first_free_bloc_contiguous = current_free_block;
+				max_blocks_found = block_allocated;
+			}
 			block_allocated = 0;
 		} else {
 			block_allocated++;
@@ -352,8 +361,11 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	// on caste les informations du block d'index dans la struct adapté
 	struct ouichefs_file_index_block *index_block =
 		(struct ouichefs_file_index_block *)physical_index->b_data;
+	struct ouichefs_extent *extents = index_block->extents;
 
 	while (count > 0) {
+		uint16_t i = 0;
+		uint32_t next_extent = 0;
 		uint32_t logical_block_nb = *ppos / OUICHEFS_BLOCK_SIZE;
 		uint32_t offset_in_block = *ppos % OUICHEFS_BLOCK_SIZE;
 
@@ -370,6 +382,10 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 			goto block_number_found;
 
 		// making new reservation if possible
+		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
+			i++; // i se trouve sur la prochaine extent de libre
+		next_extent =
+			i ? (extents[i - 1].start + extents[i - 1].count) : 0;
 		spin_lock(&fsiinfo->vfs_inode.i_lock);
 		if (fsiinfo->i_reserved_count == 0) {
 			if (sbi->nr_bfree_blocks < NR_ALLOCS) {
@@ -380,7 +396,8 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 			}
 			fsiinfo->i_reserved_count = ouichefs_alloc_contiguous(
 				sb, NR_ALLOCS + reservation_size,
-				&(fsiinfo->i_reserved_start));
+				&(fsiinfo->i_reserved_start),
+				/*next=*/next_extent);
 		}
 		if (fsiinfo->i_reserved_count > 0) {
 			// on a des blocs de réservés
@@ -403,11 +420,10 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		}
 		file->f_inode->i_blocks += new_count;
 		SET_ALLOC;
-		struct ouichefs_extent *extents = index_block->extents;
-		uint16_t i = 0;
+		i = 0;
 		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
 			i++; // i se trouve sur la prochaine extent de libre
-		uint32_t next_extent =
+		next_extent =
 			i ? (extents[i - 1].start + extents[i - 1].count) : 0;
 		if (i != 0 && physical_block_number == next_extent) {
 			extents[i - 1].count +=

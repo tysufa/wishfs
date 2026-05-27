@@ -69,7 +69,7 @@ static inline uint32_t get_free_block(struct ouichefs_sb_info *sbi)
  * Allocate the requested amount of blocks contiguously in block
  */
 uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
-				   uint32_t *block);
+				   uint32_t *block, uint32_t next);
 
 /*
  * Mark the i-th bit in freemap as free (i.e. 1)
