@@ -110,7 +110,8 @@ static long get_extents(struct file *file, long force)
 	printk(KERN_INFO "ouichefs: extents for inode %lu: %u %s\n",
 	       file->f_inode->i_ino, nb_extents,
 	       nb_extents > 1 ? "extents" : "extent");
-  printk(KERN_INFO "  reserved start: %u count: %u\n", fsiinfo->i_reserved_start, fsiinfo->i_reserved_count);
+	printk(KERN_INFO "  reserved start: %u count: %u\n",
+	       fsiinfo->i_reserved_start, fsiinfo->i_reserved_count);
 
 	while (i < OUICHEFS_MAX_EXTENTS && (extents[i].start != 0 || force)) {
 		uint32_t start = extents[i].start;
@@ -151,7 +152,10 @@ static int ouichefs_open(struct inode *inode, struct file *file)
 			return -EIO;
 		index = (struct ouichefs_file_index_block *)bh_index->b_data;
 
-		// for (iblock = 0; index->blocks[iblock] != 0; iblock++) {
+		release_extent_block(sb, ci->i_reserved_start,
+				     ci->i_reserved_count, /*clean=*/1);
+		OUICHEFS_INODE(inode)->i_reserved_count = 0;
+
 		struct ouichefs_extent *extents = index->extents;
 		uint32_t block = extents->count ? extents->start : 0;
 		uint16_t i = 0;

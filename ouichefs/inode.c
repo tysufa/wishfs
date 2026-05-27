@@ -392,6 +392,9 @@ scrub:
 	brelse(bh);
 
 clean_inode:
+	release_extent_block(sb, OUICHEFS_INODE(inode)->i_reserved_start,
+			     OUICHEFS_INODE(inode)->i_reserved_count, /*clean=*/1);
+	OUICHEFS_INODE(inode)->i_reserved_count = 0;
 	/* Cleanup inode and mark dirty */
 	inode->i_blocks = 0;
 	OUICHEFS_INODE(inode)->index_block = 0;
