@@ -138,6 +138,56 @@ static long get_extents(struct file *file, long force)
 	return 0;
 }
 
+static uint32_t write_in_hole(struct ouichefs_extent *extents,
+			      uint32_t block_number)
+{
+	uint32_t hole_before = 0;
+	uint32_t hole_after = 0;
+	uint16_t i = 0;
+	while (i < OUICHEFS_MAX_EXTENTS && block_number) {
+		if (block_number < extents[i].count)
+			break;
+		block_number -= extents[i].count;
+		i++;
+	}
+	hole_before = block_number;
+	hole_after = extents[i].count - (block_number + 1);
+	// at least one extent to add
+	uint8_t shift = (hole_before > 0 ? 1 : 0) + (hole_after > 0 ? 1 : 0);
+	if (shift == 0)
+		goto shift_done;
+	// if (i + shift >= OUICHEFS_MAX_EXTENTS)
+	// 	return NULL; // no space
+	// 	// will be verified just next
+	uint16_t last = i;
+	while (last < OUICHEFS_MAX_EXTENTS && extents[last].count)
+		last++;
+	if (last == 0 || last + shift - 1 >= OUICHEFS_MAX_EXTENTS)
+		return -ENOSPC; // no space
+	last--;
+	while (shift && last > i) {
+		extents[last + shift].start = extents[last].start;
+		extents[last + shift].count = extents[last].count;
+		last--;
+	}
+	if (!hole_before && hole_after) {
+		extents[last + 1].start = extents[last].start;
+		extents[last + 1].count = extents[last].count;
+	}
+	if (hole_before) {
+		extents[i].count = hole_before;
+		extents[i].start = 0;
+	}
+	if (hole_after) {
+		extents[i + shift].count = hole_after;
+		extents[i + shift].start = 0;
+	}
+	extents[hole_before ? i + 1 : i].count = 0;
+	extents[hole_before ? i + 1 : i].start = 0;
+shift_done:
+	return 1;
+}
+
 static int ouichefs_open(struct inode *inode, struct file *file)
 {
 	bool wronly = (file->f_flags & O_WRONLY) != 0;
@@ -348,6 +398,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	uint32_t bytes_written = 0;
 	uint32_t bytes_to_write = 0;
 	uint16_t i = 0;
+	uint8_t reset_reservation = 0;
 
 	if (file->f_flags & O_APPEND) {
 		*ppos = file->f_inode->i_size;
@@ -413,7 +464,23 @@ write_data:
 		// pr_info("Got block %u\n", physical_block_number);
 		uint32_t new_count = 0;
 		// si on doit allouer de nouveaux blocs
-		if (physical_block_number)
+		uint32_t fill = 0;
+		if (physical_block_number == OUICHEFS_HOLE_BLOCK) {
+			fill = write_in_hole(extents, logical_block_nb);
+			if (fill & (1 << 31)) {
+				pr_err("Could not split hole open. No space.");
+				return fill;
+			}
+			if (!reset_reservation) {
+				release_extent_block(sb,
+						     fsiinfo->i_reserved_start,
+						     fsiinfo->i_reserved_count,
+						     0);
+				fsiinfo->i_reserved_count = 0;
+				reset_reservation = 1;
+			}
+			physical_block_number = 0;
+		} else if (physical_block_number)
 			goto block_number_found;
 
 		// making new reservation if possible
@@ -458,8 +525,11 @@ write_data:
 		i = 0;
 		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
 			i++; // i se trouve sur la prochaine extent de libre
-		next_extent =
-			i ? (extents[i - 1].start + extents[i - 1].count) : 0;
+		next_extent = i ? (extents[i - 1].start ?
+					   (extents[i - 1].start +
+					    extents[i - 1].count) :
+					   0) :
+				  0;
 		if (i != 0 && physical_block_number == next_extent) {
 			extents[i - 1].count +=
 				new_count; // si le bloc est continu
@@ -499,7 +569,6 @@ block_number_found:
 		write_dirty_buffer(physical_block,
 				   REQ_OP_WRITE); // async write
 		brelse(physical_block);
-
 		*ppos += bytes_to_write;
 		bytes_written += bytes_to_write;
 		count -= bytes_to_write;
