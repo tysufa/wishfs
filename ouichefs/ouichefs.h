@@ -7,6 +7,7 @@
 #ifndef _OUICHEFS_H
 #define _OUICHEFS_H
 
+#include "linux/kobject.h"
 #include <linux/fs.h>
 #include <linux/ioctl.h>
 
@@ -80,6 +81,8 @@ struct ouichefs_sb_info {
 
 	unsigned long *ifree_bitmap; /* In-memory free inodes bitmap */
 	unsigned long *bfree_bitmap; /* In-memory free blocks bitmap */
+
+	struct kobject *partition_kobj;
 };
 
 //for extent version

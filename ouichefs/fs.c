@@ -5,7 +5,6 @@
  * Copyright (C) 2018  Redha Gouicem <redha.gouicem@lip6.fr>
  */
 
-#include "linux/buffer_head.h"
 #include "linux/kobject.h"
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -26,13 +25,15 @@ int create_ouichefs_sysfs(struct custom_attribute *filesystem,
 {
 	int ret;
 
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(sb);
+
 	filesystem->sb = sb;
 	filesystem->attr.attr.name = name;
 	filesystem->attr.attr.mode = 0400;
 	filesystem->attr.show = show;
 	filesystem->attr.store = NULL;
 
-	ret = sysfs_create_file(partition_kobj, &filesystem->attr.attr);
+	ret = sysfs_create_file(sbi->partition_kobj, &filesystem->attr.attr);
 	if (ret)
 		pr_err("failed to create sysfs '%s'\n", name);
 	else
@@ -63,9 +64,11 @@ struct dentry *ouichefs_mount(struct file_system_type *fs_type, int flags,
 	snprintf(kobj_partition_name, sizeof(kobj_partition_name),
 		 "partition_%s", base_name);
 
-	partition_kobj =
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(dentry->d_sb);
+	sbi->partition_kobj =
 		kobject_create_and_add(kobj_partition_name, ouichefs_kobj);
-	if (!partition_kobj)
+
+	if (!sbi->partition_kobj)
 		goto failed_sysfs_kobject;
 
 	pr_info("kobject '%s' created\n", kobj_partition_name);
@@ -87,7 +90,7 @@ struct dentry *ouichefs_mount(struct file_system_type *fs_type, int flags,
 	create_ouichefs_sysfs(&fragmentation, dentry->d_sb, fragmentation_show,
 			      "fragmentation");
 
-	create_ouichefs_sysfs(&fragmentation, dentry->d_sb,
+	create_ouichefs_sysfs(&commited_blocks, dentry->d_sb,
 			      commited_blocks_show, "commited_blocks");
 
 	create_ouichefs_sysfs(&gc_runs, dentry->d_sb, gc_runs_show, "gc_runs");
@@ -113,10 +116,12 @@ failed_sysfs_kobject:
  */
 void ouichefs_kill_sb(struct super_block *sb)
 {
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(sb);
+
+	kobject_put(sbi->partition_kobj);
+	pr_info("put sysfs partition\n");
+
 	garbage_collection(sb, 0);
-	// target 0 forces free of all reserved blocks
-	kobject_put(partition_kobj);
-	pr_info("put sysfs parition1\n");
 
 	kill_block_super(sb);
 
@@ -153,6 +158,8 @@ static int __init ouichefs_init(void)
 		ret = -ENOMEM;
 		goto err_sysfs;
 	}
+
+	pr_info("ouichefs_kobj loaded in /sys/fs\n");
 
 	pr_info("module loaded\n");
 	return 0;
