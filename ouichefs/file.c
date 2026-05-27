@@ -79,7 +79,9 @@ static uint32_t ouichefs_extent_get_block(struct ouichefs_extent *extents,
 			i++;
 			continue;
 		}
-		return extents[i].start + logical_block;
+		if (extents[i].start)
+			return extents[i].start + logical_block;
+		return OUICHEFS_HOLE_BLOCK;
 	}
 	return 0;
 }
@@ -281,27 +283,34 @@ ssize_t ouichefs_read(struct file *file, char __user *buffer, size_t count,
 			       logical_block, file->f_inode->i_ino);
 			ret = -EFAULT;
 			goto release_head_index;
-		}
-		// pr_info("Reading physical block %u", physical_block);
-		buffer_block = sb_bread(sb, physical_block);
+		} else if (physical_block == OUICHEFS_HOLE_BLOCK) {
+			if (clear_user(buffer + bytes_read, bytes_to_copy)) {
+				pr_err("Impossible de mettre le contenu du hole.\n");
+				brelse(buffer_block);
+				ret = -EIO;
+			}
+		} else {
+			// pr_info("Reading physical block %u", physical_block);
+			buffer_block = sb_bread(sb, physical_block);
 
-		if (!buffer_block) {
-			pr_err("Impossible de lire le bloc logique %u\n",
-			       physical_block);
-			ret = -EIO;
-			goto release_head_index;
-		}
+			if (!buffer_block) {
+				pr_err("Impossible de lire le bloc logique %u\n",
+				       physical_block);
+				ret = -EIO;
+				goto release_head_index;
+			}
 
-		if (copy_to_user(buffer + bytes_read,
-				 buffer_block->b_data + offset_in_block,
-				 bytes_to_copy)) {
-			pr_err("Impossible d'afficher le contenu du block\n");
+			if (copy_to_user(buffer + bytes_read,
+					 buffer_block->b_data + offset_in_block,
+					 bytes_to_copy)) {
+				pr_err("Impossible d'afficher le contenu du block\n");
+				brelse(buffer_block);
+				ret = -EIO;
+				goto release_head_index;
+			}
+
 			brelse(buffer_block);
-			ret = -EIO;
-			goto release_head_index;
 		}
-
-		brelse(buffer_block);
 
 		count -= bytes_to_copy;
 		*ppos += bytes_to_copy;

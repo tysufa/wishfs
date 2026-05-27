@@ -118,6 +118,7 @@ extern uint32_t reservation_size;
 void release_extent_block(struct super_block *sb, uint32_t start,
 			  uint32_t count, uint8_t clean);
 void garbage_collection(struct super_block *sb, uint32_t target);
+#define OUICHEFS_HOLE_BLOCK 0xffffffff
 
 /* Getters for superbock and inode */
 #define OUICHEFS_SB(sb) (sb->s_fs_info)
