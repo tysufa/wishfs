@@ -55,16 +55,17 @@ static ssize_t free_blocks_show(struct kobject *kobj,
 		nr_free_blocks_sbi, nr_free_blocks);
 }
 
-bool in_interval(uint32_t block, uint32_t extent_start, uint32_t extent_end)
+bool in_interval(uint32_t block, uint32_t extent_start, uint32_t extent_count)
 {
-	if (extent_start <= block && extent_start + extent_end >= block)
+	if (extent_start <= block && extent_start + extent_count >= block)
 		return true;
 	else
 		return false;
 }
 
 uint32_t nr_reserved_block_in_extent(unsigned long *bitmap,
-				     uint32_t extent_start, uint32_t extent_end,
+				     uint32_t extent_start,
+				     uint32_t extent_count,
 				     struct ouichefs_sb_info *sbi)
 {
 	unsigned long reserved_block =
@@ -72,13 +73,13 @@ uint32_t nr_reserved_block_in_extent(unsigned long *bitmap,
 
 	uint32_t nr_reserved_block = 0;
 
-	while (reserved_block != sbi->nr_blocks) {
-		if (in_interval(reserved_block, extent_start, extent_end)) {
+	while (reserved_block < sbi->nr_blocks) {
+		if (in_interval(reserved_block, extent_start, extent_count)) {
 			bitmap_set(bitmap, reserved_block, 1);
 			nr_reserved_block++;
 		}
-		reserved_block = find_next_bit(bitmap, sbi->nr_blocks,
-					       reserved_block + 1);
+		reserved_block = find_next_zero_bit(bitmap, sbi->nr_blocks,
+						    reserved_block + 1);
 	}
 
 	return nr_reserved_block;
@@ -95,6 +96,8 @@ static ssize_t commited_blocks_show(struct kobject *kobj,
 
 	struct buffer_head *bh;
 	struct buffer_head *bh_index;
+
+	struct ouichefs_extent cur_extent;
 
 	u32 block_nr;
 	uint32_t nr_commited_blocks = 0;
@@ -141,7 +144,7 @@ static ssize_t commited_blocks_show(struct kobject *kobj,
 		for (size_t i = 0; i < OUICHEFS_INODES_PER_BLOCK; i++) {
 			if (inode_store_block[i].i_mode != 0) {
 				if (!S_ISREG(inode_store_block[i].i_mode))
-					break;
+					continue;
 
 				inode_index = inode_store_block[i].index_block;
 
@@ -151,19 +154,19 @@ static ssize_t commited_blocks_show(struct kobject *kobj,
 						bh_index->b_data;
 
 				// - Parcourt des extents de cet inode -
-				for (size_t i = 0; i < OUICHEFS_MAX_EXTENTS;
-				     i++) {
-					if (index_block->extents[i].count == 0)
+				for (size_t j = 0; j < OUICHEFS_MAX_EXTENTS;
+				     j++) {
+					cur_extent = index_block->extents[j];
+					if (cur_extent.count == 0)
 						break;
+					if (cur_extent.start == 0)
+						continue;
 
 					nr_commited_blocks +=
 						nr_reserved_block_in_extent(
 							local_bitmap,
-							index_block->extents[i]
-								.start,
-							index_block->extents[i]
-								.count,
-							sbi);
+							cur_extent.start,
+							cur_extent.count, sbi);
 				}
 
 				brelse(bh_index);
@@ -351,9 +354,9 @@ static ssize_t total_extents_show(struct kobject *kobj,
 							 *)bh_index->b_data;
 
 					// - Parcourt des extents de cet inode -
-					for (size_t i = 0;
-					     i < OUICHEFS_MAX_EXTENTS; i++) {
-						if (index_block->extents[i]
+					for (size_t j = 0;
+					     j < OUICHEFS_MAX_EXTENTS; j++) {
+						if (index_block->extents[j]
 							    .count == 0) {
 							break;
 						}
@@ -430,16 +433,16 @@ static ssize_t avg_extent_size_show(struct kobject *kobj,
 							 *)bh_index->b_data;
 
 					// - Parcourt des extents de cet inode -
-					for (size_t i = 0;
-					     i < OUICHEFS_MAX_EXTENTS; i++) {
-						if (index_block->extents[i]
+					for (size_t j = 0;
+					     j < OUICHEFS_MAX_EXTENTS; j++) {
+						if (index_block->extents[j]
 							    .count == 0) {
 							break;
 						}
 						nr_extent++;
 
 						total_extent_size +=
-							index_block->extents[i]
+							index_block->extents[j]
 								.count;
 					}
 
@@ -517,9 +520,9 @@ static ssize_t fragmentation_show(struct kobject *kobj,
 							 *)bh_index->b_data;
 
 					// - Parcourt des extents de cet inode -
-					for (size_t i = 0;
-					     i < OUICHEFS_MAX_EXTENTS; i++) {
-						if (index_block->extents[i]
+					for (size_t j = 0;
+					     j < OUICHEFS_MAX_EXTENTS; j++) {
+						if (index_block->extents[j]
 							    .count == 0) {
 							break;
 						}
