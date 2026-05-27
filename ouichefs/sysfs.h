@@ -187,105 +187,24 @@ static ssize_t commited_blocks_show(struct kobject *kobj,
 	return sysfs_emit(buf, "%d\n", nr_commited_blocks);
 }
 
+// renvoie le nombre de blocks réservés en mémoire
 static ssize_t reserved_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
 {
 	struct custom_attribute *attributes =
 		container_of(attr, struct custom_attribute, attr);
 
-	struct ouichefs_sb_info *sbi = OUICHEFS_SB(attributes->sb);
 	struct super_block *sb = attributes->sb;
 
-	struct buffer_head *bh;
-	struct buffer_head *bh_index;
-
-	struct ouichefs_extent cur_extent;
-
-	u32 block_nr;
-	uint32_t nr_commited_blocks = 0;
-
-	// On veut pouvoir modifier la bitmap
-	uint32_t nr_bits = sbi->nr_blocks;
-
-	unsigned long *local_bitmap = kmalloc_array(
-		BITS_TO_LONGS(nr_bits), sizeof(unsigned long), GFP_KERNEL);
-	if (!local_bitmap) {
-		return -ENOMEM;
-	}
-	bitmap_copy(local_bitmap, sbi->bfree_bitmap, nr_bits);
-
-	// l'inode store est présent sur le bloc 1
-	u32 istore_start_block = 1;
-	u32 istore_end_block = istore_start_block + sbi->nr_istore_blocks;
-
-	__le32 inode_index;
-	struct ouichefs_file_index_block *index_block;
-
-	// -- FLUSH DES INODES DIRTY EN MEMOIRE ---
+	// --- Parcourt de toutes nos inodes pour voir leur reservations ---
 	struct inode *inode;
 	struct inode *tmp;
 
 	uint32_t reserved_blocks_nb = 0;
 
 	list_for_each_entry_safe(inode, tmp, &sb->s_inodes, i_sb_list) {
-		write_inode_now(inode, WB_SYNC_ALL);
 		reserved_blocks_nb += OUICHEFS_INODE(inode)->i_reserved_count;
 	}
-
-	// --- on parcourt les inodes store blocks ---
-	for (block_nr = istore_start_block; block_nr < istore_end_block;
-	     block_nr++) {
-		bh = sb_bread(sb, block_nr);
-		if (!bh) {
-			pr_err("ouichefs: Impossible de lire le bloc d'inodes %u\n",
-			       block_nr);
-			continue;
-		}
-
-		struct ouichefs_inode *inode_store_block =
-			(struct ouichefs_inode *)bh->b_data;
-
-		// -- on parcourt tous les inodes du block --
-		for (size_t i = 0; i < OUICHEFS_INODES_PER_BLOCK; i++) {
-			if (inode_store_block[i].i_mode != 0) {
-				if (!S_ISREG(inode_store_block[i].i_mode))
-					continue;
-
-				inode_index = inode_store_block[i].index_block;
-
-				bh_index = sb_bread(sb, inode_index);
-				index_block =
-					(struct ouichefs_file_index_block *)
-						bh_index->b_data;
-
-				// - Parcourt des extents de cet inode -
-				for (size_t j = 0; j < OUICHEFS_MAX_EXTENTS;
-				     j++) {
-					cur_extent = index_block->extents[j];
-					if (cur_extent.count == 0)
-						break;
-					if (cur_extent.start == 0)
-						continue;
-
-					nr_commited_blocks +=
-						nr_reserved_block_in_extent(
-							local_bitmap,
-							cur_extent.start,
-							cur_extent.count, sbi);
-				}
-
-				brelse(bh_index);
-			}
-		}
-
-		brelse(bh);
-	}
-
-	pr_info("bitmap weight : %d\nreserved_blocks : %d\n",
-		bitmap_weight(local_bitmap, sbi->nr_blocks),
-		sbi->nr_blocks - bitmap_weight(local_bitmap, sbi->nr_blocks));
-
-	kfree(local_bitmap);
 
 	pr_info("Reserved block number : %d\n", reserved_blocks_nb);
 	return sysfs_emit(buf, "%d\n", reserved_blocks_nb);
