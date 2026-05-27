@@ -20,6 +20,7 @@
 							 ->b_data;                   \
 			     i < OUICHEFS_INODES_PER_BLOCK; i++, oinode++)
 
+// Renvoie le nombre de blocs libre dans le filesystem
 static ssize_t free_blocks_show(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
@@ -81,6 +82,7 @@ uint32_t nr_reserved_block_in_extent(unsigned long *bitmap,
 	return nr_reserved_block;
 }
 
+// Renvoie le nombre de blocks utilisés par des fichiers
 static ssize_t commited_blocks_show(struct kobject *kobj,
 				    struct kobj_attribute *attr, char *buf)
 {
@@ -210,6 +212,7 @@ static ssize_t reserved_show(struct kobject *kobj, struct kobj_attribute *attr,
 	return sysfs_emit(buf, "%d\n", reserved_blocks_nb);
 }
 
+// renvoi le nombre de fichier présent dans le filesystem
 static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
 			  char *buf)
 {
@@ -268,6 +271,7 @@ static ssize_t files_show(struct kobject *kobj, struct kobj_attribute *attr,
 			  total_files, total_dir);
 }
 
+// renvoie la taille du plus grand fichier
 static ssize_t max_file_size_show(struct kobject *kobj,
 				  struct kobj_attribute *attr, char *buf)
 {
@@ -325,6 +329,7 @@ static ssize_t max_file_size_show(struct kobject *kobj,
 	return sysfs_emit(buf, "Max file size : %lu bytes\n", max_file_size);
 }
 
+// Renvoie le nombre total d'extents
 static ssize_t total_extents_show(struct kobject *kobj,
 				  struct kobj_attribute *attr, char *buf)
 {
@@ -402,6 +407,7 @@ static ssize_t total_extents_show(struct kobject *kobj,
 	return sysfs_emit(buf, "Total number of extents : %lu\n", nr_extent);
 }
 
+// Renvoie la taille moyenne d'un extent dans le filesystem
 static ssize_t avg_extent_size_show(struct kobject *kobj,
 				    struct kobj_attribute *attr, char *buf)
 {
@@ -487,6 +493,7 @@ static ssize_t avg_extent_size_show(struct kobject *kobj,
 			  avg_extent_size);
 }
 
+// Renvoie le nombre d'extent par fichier
 static ssize_t fragmentation_show(struct kobject *kobj,
 				  struct kobj_attribute *attr, char *buf)
 {
@@ -570,6 +577,7 @@ static ssize_t fragmentation_show(struct kobject *kobj,
 			  avg_extent_per_file);
 }
 
+// Renvoie le nombre de fois ou le garbage collector à été appelé depuis le mount
 static ssize_t gc_runs_show(struct kobject *kobj, struct kobj_attribute *attr,
 			    char *buf)
 {
@@ -582,11 +590,11 @@ static ssize_t gc_runs_show(struct kobject *kobj, struct kobj_attribute *attr,
 			  sbi->nr_gc_pass);
 }
 
+// Renvoie la taille de reservation du write
 static ssize_t reservation_size_show(struct kobject *kobj,
 				     struct kobj_attribute *attr, char *buf)
 {
-	return sysfs_emit(buf, "Number of GC since mount : %d\n",
-			  reservation_size);
+	return sysfs_emit(buf, "Reservation size : %d\n", reservation_size);
 }
 
 struct kobject *ouichefs_kobj;
