@@ -14,7 +14,7 @@ void read_write_simple(const char *file){
 
 	const size_t len_read = v1KB;
 	char s_read[len_read];
-	__init_buffer_with_zeroes(s_read, len_read);
+	bzero(s_read, len_read);
 
 	check_test(len_write == 19, "len_write must be 19B");
 
@@ -45,7 +45,7 @@ void read_write_several_blocks(const char *file){
 
 	const size_t len_read = (v1KB << 2 << 2) + 100;
 	char s_read[len_read];
-	__init_buffer_with_zeroes(s_read, len_read);
+	bzero(s_read, len_read);
 
 	check_test(len_write == 16384, "len_write must be 16KB");
 
@@ -95,7 +95,7 @@ void write_middle_simple(const char* file){
 	//tests on reads & writes
 	const size_t len_read = 9;
 	char s_read[len_read];
-	__init_buffer_with_zeroes(s_read, len_read);
+	bzero(s_read, len_read);
 
 	ssize_t res;
 	const int fd = open_file(file, O_RDWR);
@@ -142,7 +142,7 @@ void write_middle_several_blocks(const char* file){
 	//seek position to 2KB
 	const size_t len_read = v1KB*2+1;
 	char s_read[len_read];
-	__init_buffer_with_zeroes(s_read, len_read);
+	bzero(s_read, len_read);
 
 	res = measure_read(fd, s_read, len_read-1);
 	if (failed(res == len_read-1))
@@ -239,7 +239,7 @@ void create_sparse(const char *file){
 	//check final state
 	const ssize_t len_read = 25;
 	char s_read[len_read];
-	__init_buffer_with_zeroes(s_read, len_read);
+	bzero(s_read, len_read);
 
 	//expecting s8B("a") s8B("\0") s8B("b")
 	const int fd_final = open_file(file, O_RDONLY);
@@ -312,7 +312,7 @@ void read_trunc_several_blocks(const char *file){
 	//read with trunc flag
 	const size_t len_read = v1KB*2 + 1;
 	char s_read[len_read];
-	__init_buffer_with_zeroes(s_read, len_read);
+	bzero(s_read, len_read);
 
 	const int fd_read = open_file(file, O_RDONLY | O_TRUNC);
 	const ssize_t res = measure_read(fd_read, s_read, len_read);

@@ -93,8 +93,7 @@ do { \
 })
 
 void __init_buffer_with_zeroes(char buf[], size_t len){
-	for (size_t i=0; i<len; i++)
-		buf[i] = 0;
+  bzero(buf, len);
 }
 
 void __initialize_file_to(const char *file, const char* s_init){
@@ -110,7 +109,7 @@ void __compare_file_to(const char *file, const char* s_final){
 	const size_t len_read = len_final + 100;
 
 	char s_read[len_read];
-	__init_buffer_with_zeroes(s_read, len_read);
+	bzero(s_read, len_read);
 
 	const int fd_final = open_file(file, O_RDONLY);
 	const ssize_t res = measure_read(fd_final, s_read, len_read);
