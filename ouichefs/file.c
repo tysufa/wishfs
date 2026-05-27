@@ -440,19 +440,24 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	if (*ppos <= file->f_inode->i_size)
 		goto write_data;
 	{ // changing scope
-		uint32_t void_size = (*ppos - 1) - file->f_inode->i_size;
+		uint32_t void_size = *ppos - file->f_inode->i_size;
 		void_size -= file->f_inode->i_size % OUICHEFS_BLOCK_SIZE;
 		// removing 0s already in last block but not written.
 		uint32_t void_blocks = void_size / OUICHEFS_BLOCK_SIZE;
+		if (void_blocks == 0)
+			goto write_data;
 		i = 0;
 		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
 			i++; // i se trouve sur la prochaine extent de libre
 		if (i >= OUICHEFS_MAX_EXTENTS)
 			goto release_physical_index;
+		if (i != 0)
+			i--;
 		if (i != 0 && extents[i - 1].start == 0)
 			i--;
 		extents[i].start = 0;
 		extents[i].count = void_blocks;
+		pr_info("Added %u void_blocks at [%u]\n", void_blocks, i);
 		DEC_NR(void_blocks);
 	}
 
@@ -469,7 +474,6 @@ write_data:
 		// on récupère le block qu'on veut lire
 		uint32_t physical_block_number = ouichefs_extent_get_block(
 			index_block->extents, logical_block_nb);
-		// pr_info("Got block %u\n", physical_block_number);
 		uint32_t new_count = 0;
 		// si on doit allouer de nouveaux blocs
 		uint32_t fill = 0;
@@ -482,8 +486,10 @@ write_data:
 			// 	goto release_physical_index;
 			// }
 			physical_block_number = 0;
-		} else if (physical_block_number)
+		} else if (physical_block_number) {
+			pr_info("Using block %u\n", physical_block_number);
 			goto block_number_found;
+		}
 
 		// making new reservation if possible
 		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
