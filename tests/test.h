@@ -67,13 +67,19 @@ do { \
 
 #define _measure_op(_fd, _op, _sop, _s, _len) \
 ({ \
+	ssize_t res = 1; \
+	ssize_t offset = 0; \
 	const clock_t tstart = clock(); \
-	const ssize_t count = (_op)(_fd, _s, _len); \
+	while (res > 0){ \
+		res = (_op)(_fd, _s + offset, _len); \
+		manage_error(res, __func__, _sop); \
+		offset += res; \
+	} \
 	const clock_t tend = clock(); \
 	const clock_t tdiff = (float)(tend - tstart); \
-	manage_error(count, __func__, _sop); \
-	fprintf(stdout, "- " _sop ": %ld bytes, time: %d.\n", count, tdiff); \
-	count; \
+	const size_t nb_read = res < 0 ? res : offset; \
+	fprintf(stdout, "- " _sop ": %ld bytes, time: %d.\n", nb_read, tdiff); \
+	nb_read; \
 })
 
 #define measure_write(_fd, _s, _len) \
@@ -121,4 +127,7 @@ void run_test(void (*func)(const char *), char *path){
 	func(path);
 	//supprimer fichier //TODO
 	//comparer nombre free blocks avec (1) //TODO
+	//sanity check
+
+
 }
