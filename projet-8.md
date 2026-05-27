@@ -22,6 +22,9 @@ Projet PNL du groupe 8
 - Non traité
 
 ## 1.7 Write-time block reservation
+Algo:
+    Si pas de réservation:
+    on essaye d'allouer l'estimation de blocs nécessaires + la taille d'allocation (on fait au plus grand pour réduire la fragmentation)
 - Testé et fonctionnel
 - Pas complètement fonctionnel (bug, etc..), dans ce cas, précisez les problèmes
 - Non traité

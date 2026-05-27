@@ -6,6 +6,7 @@
  */
 
 #include "linux/bitmap.h"
+#include "linux/minmax.h"
 #define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/module.h>
@@ -17,8 +18,33 @@
 #include "ouichefs.h"
 #include "bitmap.h"
 
+static void garbage_collection(struct super_block *sb, uint32_t target)
+{
+	struct inode *inode;
+	uint32_t early_stop = 0;
+
+	spin_lock(&sb->s_inode_list_lock);
+	list_for_each_entry(inode, &sb->s_inodes, i_sb_list) {
+		spin_lock(&inode->i_lock);
+		struct ouichefs_inode_info *fsiinfo = OUICHEFS_INODE(inode);
+		if (fsiinfo->i_reserved_count > 0) {
+			early_stop = fsiinfo->i_reserved_count > target &&
+				     target > 0;
+			release_extent_block(sb, fsiinfo->i_reserved_start,
+					     fsiinfo->i_reserved_count, 0);
+			// no block cleaning becuase blocks were never used
+			fsiinfo->i_reserved_count = 0;
+		}
+		spin_unlock(&inode->i_lock);
+		if (early_stop)
+			break;
+		// quand on a déjà trouvé suffisament de blocs continus
+	}
+	spin_unlock(&sb->s_inode_list_lock);
+}
+
 void release_extent_block(struct super_block *sb, uint32_t start,
-			  uint32_t count)
+			  uint32_t count, uint8_t clean)
 {
 	struct ouichefs_sb_info *sbi = OUICHEFS_SB(sb);
 	struct buffer_head *bh = NULL;
@@ -26,12 +52,14 @@ void release_extent_block(struct super_block *sb, uint32_t start,
 	uint32_t block_number = start;
 
 	while (block_number < start + count) {
-		bh = sb_bread(sb, le32_to_cpu(block_number));
-		if (bh) {
-			block = (char *)bh->b_data;
-			memset(block, 0, OUICHEFS_BLOCK_SIZE);
-			mark_buffer_dirty(bh);
-			brelse(bh);
+		if (clean) {
+			bh = sb_bread(sb, le32_to_cpu(block_number));
+			if (bh) {
+				block = (char *)bh->b_data;
+				memset(block, 0, OUICHEFS_BLOCK_SIZE);
+				mark_buffer_dirty(bh);
+				brelse(bh);
+			}
 		}
 		put_block(sbi, le32_to_cpu(block_number));
 		block_number++;
@@ -82,6 +110,7 @@ static long get_extents(struct file *file, long force)
 	printk(KERN_INFO "ouichefs: extents for inode %lu: %u %s\n",
 	       file->f_inode->i_ino, nb_extents,
 	       nb_extents > 1 ? "extents" : "extent");
+  printk(KERN_INFO "  reserved start: %u count: %u\n", fsiinfo->i_reserved_start, fsiinfo->i_reserved_count);
 
 	while (i < OUICHEFS_MAX_EXTENTS && (extents[i].start != 0 || force)) {
 		uint32_t start = extents[i].start;
@@ -304,8 +333,9 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 	else
 		nr_allocs = 0;
 	// si on sait d'avance qu'on ne pourra jamais allouer
-	if (nr_allocs > sbi->nr_free_blocks)
-		return -ENOSPC;
+	// if (nr_allocs > sbi->nr_free_blocks)
+	// 	return -ENOSPC;
+	// 	// plus correct car on a le GC maintenant
 
 	// on récupère l'index
 	physical_index =
@@ -332,69 +362,68 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		// pr_info("Got block %u\n", physical_block_number);
 		uint32_t new_count = 0;
 		// si on doit allouer de nouveaux blocs
-		if (physical_block_number == 0) {
-			// making new reservation if possible
-			if (NR_ALLOCS < reservation_size &&
-			    fsiinfo->i_reserved_count == 0) {
-				fsiinfo->i_reserved_count =
-					ouichefs_alloc_contiguous(
-						sb, reservation_size,
-						&(fsiinfo->i_reserved_start));
-			}
-			if (fsiinfo->i_reserved_count > 0) {
-				// on a des blocs de réservés
-				physical_block_number =
-					fsiinfo->i_reserved_start;
-				fsiinfo->i_reserved_start++;
-				fsiinfo->i_reserved_count--;
-				new_count = 1;
-			}
-			// pr_info("On cherche un nouveau bloc\n");
-			else if (NR_ALLOCS) {
-				new_count = ouichefs_alloc_contiguous(
-					sb, NR_ALLOCS, &physical_block_number);
-			} else {
-				physical_block_number = get_free_block(sbi);
-				new_count = 1;
-			}
-			DEC_NR(new_count);
-			if (!physical_block_number || !new_count) {
-				pr_err("pas de blocks disponibles pour l'écriture\n");
-				bytes_written = -ENOSPC;
-				goto release_physical_index;
-			}
-			file->f_inode->i_blocks += new_count;
-			SET_ALLOC;
-			struct ouichefs_extent *extents = index_block->extents;
-			uint16_t i = 0;
-			while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
-				i++; // i se trouve sur la prochaine extent de libre
-			uint32_t next_extent = i ? (extents[i - 1].start +
-						    extents[i - 1].count) :
-						   0;
-			if (i != 0 && physical_block_number == next_extent) {
-				extents[i - 1].count +=
-					new_count; // si le bloc est continu
-				// pr_info("Nouveau bloc continu\n");
-			} else if (i >= OUICHEFS_MAX_EXTENTS) {
-				while (new_count--) {
-					physical_block = sb_bread(
-						sb, physical_block_number +
-							    new_count);
-					if (physical_block)
-						brelse(physical_block);
-				}
-				pr_err("No more space in index.\n");
-				bytes_written = -ENOSPC;
-				goto release_physical_index;
-			} else { // si on doit ajouter un nouvel extent
-				// pr_info("Creating new extent in index\n");
-				extents[i].count = new_count;
-				extents[i].start = physical_block_number;
-			}
-			mark_buffer_dirty(physical_index);
-		}
+		if (physical_block_number)
+			goto block_number_found;
 
+		// making new reservation if possible
+		spin_lock(&fsiinfo->vfs_inode.i_lock);
+		if (fsiinfo->i_reserved_count == 0) {
+			if (sbi->nr_bfree_blocks < NR_ALLOCS) {
+				spin_unlock(&fsiinfo->vfs_inode.i_lock);
+				garbage_collection(
+					sb, NR_ALLOCS + reservation_size);
+				spin_lock(&fsiinfo->vfs_inode.i_lock);
+			}
+			fsiinfo->i_reserved_count = ouichefs_alloc_contiguous(
+				sb, NR_ALLOCS + reservation_size,
+				&(fsiinfo->i_reserved_start));
+		}
+		if (fsiinfo->i_reserved_count > 0) {
+			// on a des blocs de réservés
+			physical_block_number = fsiinfo->i_reserved_start;
+			fsiinfo->i_reserved_start++;
+			fsiinfo->i_reserved_count--;
+			new_count = 1;
+		} else if (physical_block_number == 0) {
+			// fallback if for any reason theres a problem
+			pr_warn("Using legacy block allocation. This should not happen.");
+			physical_block_number = get_free_block(sbi);
+			new_count = 1;
+		}
+		spin_unlock(&fsiinfo->vfs_inode.i_lock);
+		DEC_NR(new_count);
+		if (!physical_block_number || !new_count) {
+			pr_err("pas de blocks disponibles pour l'écriture\n");
+			bytes_written = -ENOSPC;
+			goto release_physical_index;
+		}
+		file->f_inode->i_blocks += new_count;
+		SET_ALLOC;
+		struct ouichefs_extent *extents = index_block->extents;
+		uint16_t i = 0;
+		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
+			i++; // i se trouve sur la prochaine extent de libre
+		uint32_t next_extent =
+			i ? (extents[i - 1].start + extents[i - 1].count) : 0;
+		if (i != 0 && physical_block_number == next_extent) {
+			extents[i - 1].count +=
+				new_count; // si le bloc est continu
+			// pr_info("Nouveau bloc continu\n");
+		} else if (i >= OUICHEFS_MAX_EXTENTS) {
+			release_extent_block(sb, physical_block_number,
+					     new_count, /*clean=*/0);
+			// no cleaning because not written yet
+			pr_err("No more space in index.\n");
+			bytes_written = -ENOSPC;
+			goto release_physical_index;
+		} else { // si on doit ajouter un nouvel extent
+			// pr_info("Creating new extent in index\n");
+			extents[i].count = new_count;
+			extents[i].start = physical_block_number;
+		}
+		mark_buffer_dirty(physical_index);
+
+block_number_found:
 		// pr_info("reading block %u\n", physical_block_number);
 		physical_block = sb_bread(sb, physical_block_number);
 
@@ -412,7 +441,8 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 		}
 
 		mark_buffer_dirty(physical_block);
-		write_dirty_buffer(physical_block, REQ_OP_WRITE); // async write
+		write_dirty_buffer(physical_block,
+				   REQ_OP_WRITE); // async write
 		brelse(physical_block);
 
 		*ppos += bytes_to_write;
@@ -423,7 +453,7 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 release_physical_index: // because some bytes might already be written
 	if (*ppos > file->f_inode->i_size) {
 		file->f_inode->i_size = *ppos;
-		mark_inode_dirty(file->f_inode);
+		SET_ALLOC;
 	}
 	if (ISSET_ALLOC)
 		mark_inode_dirty(file->f_inode);

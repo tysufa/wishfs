@@ -114,7 +114,7 @@ extern const struct file_operations ouichefs_file_ops;
 extern const struct file_operations ouichefs_dir_ops;
 extern uint32_t reservation_size;
 void release_extent_block(struct super_block *sb, uint32_t start,
-			  uint32_t count);
+			  uint32_t count, uint8_t clean);
 
 /* Getters for superbock and inode */
 #define OUICHEFS_SB(sb) (sb->s_fs_info)
