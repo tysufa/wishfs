@@ -22,7 +22,7 @@
 #define v1KB (1 << 10)
 #define v1MB (1 << 20)
 
-#define PATH "/mnt/test_mnt/test_"
+#define PATH "./test_"
 
 void manage_error(int no, const char *fname, const char *fdescr){
 	if (no < 0){
@@ -71,7 +71,7 @@ do { \
 	ssize_t offset = 0; \
 	const clock_t tstart = clock(); \
 	while (res > 0){ \
-		res = (_op)(_fd, _s + offset, _len); \
+		res = (_op)((_fd), (_s) + offset, (_len) - offset); \
 		manage_error(res, __func__, _sop); \
 		offset += res; \
 	} \
