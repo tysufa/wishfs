@@ -93,6 +93,8 @@ failed_sysfs_file:
  */
 void ouichefs_kill_sb(struct super_block *sb)
 {
+	garbage_collection(sb, 0);
+	// target 0 forces free of all reserved blocks
 	kobject_put(partition_kobj);
 	pr_info("put sysfs parition1\n");
 

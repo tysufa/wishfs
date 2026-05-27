@@ -18,7 +18,7 @@
 #include "ouichefs.h"
 #include "bitmap.h"
 
-static void garbage_collection(struct super_block *sb, uint32_t target)
+void garbage_collection(struct super_block *sb, uint32_t target)
 {
 	struct inode *inode;
 	uint32_t early_stop = 0;
