@@ -90,6 +90,8 @@ struct ouichefs_sb_info {
 	struct kobject *partition_kobj; /* kobject for the partition sysfs */
 	struct custom_attribute
 		sysfs_attrs[11]; /* attributes for this partition sysfs */
+
+	struct mutex bitmap_lock;
 };
 
 //for extent version

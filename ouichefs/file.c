@@ -7,6 +7,7 @@
 
 #include "linux/bitmap.h"
 #include "linux/minmax.h"
+#include "linux/mutex.h"
 #define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/module.h>
@@ -260,15 +261,15 @@ uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
 	uint32_t block_allocated = 0;
 	uint32_t max_blocks_found = 0;
 
+	// On veut éviter que plusieurs personnes tentent de prendre des blocs libre en même temps
+	mutex_lock(&sbi->bitmap_lock);
+
 	while (current_free_block != sbi->nr_blocks &&
 	       block_allocated < requested) {
 		current_free_block = find_next_bit(bfree_bitmap, sbi->nr_blocks,
 						   current_free_block + 1);
 
 		if (current_free_block != last_free_bloc + 1) {
-			// pr_info("current_free_block : %lu, last_free_bloc : %lu\n",
-			// current_free_block, last_free_bloc);
-
 			if (next && current_free_block == next) {
 				first_free_bloc_contiguous = current_free_block;
 				max_blocks_found = block_allocated;
@@ -286,11 +287,10 @@ uint32_t ouichefs_alloc_contiguous(struct super_block *sb, uint32_t requested,
 		last_free_bloc = current_free_block;
 	}
 
-	// pr_info("blocks allocated : %lu - %lu\n", first_free_bloc_contiguous,
-	// current_free_block);
-
-	// TODO: rajouter un lock pour pas se faire manger des blocks pendant qu'on clear
 	bitmap_clear(bfree_bitmap, first_free_bloc_contiguous, block_allocated);
+
+	mutex_unlock(&sbi->bitmap_lock);
+
 	sbi->nr_free_blocks -= block_allocated;
 
 	*block = first_free_bloc_contiguous;
