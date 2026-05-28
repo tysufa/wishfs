@@ -157,55 +157,53 @@ static uint32_t write_in_hole(struct ouichefs_extent *extents,
 		    0;
 	hole_before = block_number;
 	hole_after = extents[i].count - (block_number + 1);
-		futur_block);
-		if (i && next_extent == futur_block) {
-			if (--extents[i].count == 0) {
-				extents[i].count = 1; // will be replaced
-				uint16_t j = i;
-				while (j < OUICHEFS_MAX_EXTENTS &&
-				       extents[j].count != 0) {
-					extents[j].count = extents[j + 1].count;
-					extents[j].start = extents[j + 1].start;
-					j++;
-				} // si on doit supprimer le trou
-			}
-			return i; // no change, will automatically be added to previous extent
+	if (i && next_extent == futur_block) {
+		if (--extents[i].count == 0) {
+			extents[i].count = 1; // will be replaced
+			uint16_t j = i;
+			while (j < OUICHEFS_MAX_EXTENTS &&
+			       extents[j].count != 0) {
+				extents[j].count = extents[j + 1].count;
+				extents[j].start = extents[j + 1].start;
+				j++;
+			} // si on doit supprimer le trou
 		}
-		// at least one extent to add
-		uint8_t shift =
-			(hole_before > 0 ? 1 : 0) + (hole_after > 0 ? 1 : 0);
-		if (shift == 0)
-			goto shift_done;
-		// if (i + shift >= OUICHEFS_MAX_EXTENTS)
-		// 	return NULL; // no space
-		// 	// will be verified just next
-		uint16_t last = i;
-		while (last < OUICHEFS_MAX_EXTENTS && extents[last].count)
-			last++;
-		if (last == 0 || last + shift - 1 >= OUICHEFS_MAX_EXTENTS) {
-			pr_err("Could not fill hole because no more extents are available.\n");
-			return -ENOSPC; // no space
-		}
+		return i; // no change, will automatically be added to previous extent
+	}
+	// at least one extent to add
+	uint8_t shift = (hole_before > 0 ? 1 : 0) + (hole_after > 0 ? 1 : 0);
+	if (shift == 0)
+		goto shift_done;
+	// if (i + shift >= OUICHEFS_MAX_EXTENTS)
+	// 	return NULL; // no space
+	// 	// will be verified just next
+	uint16_t last = i;
+	while (last < OUICHEFS_MAX_EXTENTS && extents[last].count)
+		last++;
+	if (last == 0 || last + shift - 1 >= OUICHEFS_MAX_EXTENTS) {
+		pr_err("Could not fill hole because no more extents are available.\n");
+		return -ENOSPC; // no space
+	}
+	last--;
+	while (shift && last > i) {
+		extents[last + shift].start = extents[last].start;
+		extents[last + shift].count = extents[last].count;
 		last--;
-		while (shift && last > i) {
-			extents[last + shift].start = extents[last].start;
-			extents[last + shift].count = extents[last].count;
-			last--;
-		}
-		if (!hole_before && hole_after) {
-			extents[last + 1].start = extents[last].start;
-			extents[last + 1].count = extents[last].count;
-		}
-		if (hole_before) {
-			extents[i].count = hole_before;
-			extents[i].start = 0;
-		}
-		if (hole_after) {
-			extents[i + shift].count = hole_after;
-			extents[i + shift].start = 0;
-		}
-		// extents[hole_before ? i + 1 : i].count = 0;
-		// extents[hole_before ? i + 1 : i].start = 0;
+	}
+	if (!hole_before && hole_after) {
+		extents[last + 1].start = extents[last].start;
+		extents[last + 1].count = extents[last].count;
+	}
+	if (hole_before) {
+		extents[i].count = hole_before;
+		extents[i].start = 0;
+	}
+	if (hole_after) {
+		extents[i + shift].count = hole_after;
+		extents[i + shift].start = 0;
+	}
+	// extents[hole_before ? i + 1 : i].count = 0;
+	// extents[hole_before ? i + 1 : i].start = 0;
 shift_done:
 	return hole_before ? i + 1 : i;
 }

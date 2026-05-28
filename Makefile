@@ -49,6 +49,7 @@ clean_disk:
 clean:
 	$(MAKE) -C $(kdir) clean
 	rm -f $(test_disk) $(test_disk2) $(myHome)
+	rm -f $(kconfig)
 
 $(test_disk): $(mkfs)
 	dd if=/dev/zero of=$(test_disk) bs=1M count=50

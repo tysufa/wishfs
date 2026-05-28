@@ -224,7 +224,7 @@ void write_over_end(const char *file) {
 }
 
 void create_sparse_AHB(const char *file) {
-  fprintf(stdout, "--- Test creating a hole in a file. ---\n");
+  fprintf(stdout, "--- Writing A _ B. ---\n");
 
   ssize_t res;
 
@@ -254,23 +254,12 @@ void create_sparse_AHB(const char *file) {
   if (failed(res == len_read - 1))
     fprintf(stdout, "Should read 24B. Read: '%s'.\n", s_read);
 
-  //check content
-  size_t i = 0;
-  for (; i < 8; i++)
-    if (failed(s_read[i] == 'a'))
-      fprintf(stdout, "Should read 'a'. Read: '%c'.\n", s_read[i]);
-  for (; i < 16; i++)
-    if (failed(s_read[i] == '\0'))
-      fprintf(stdout, "Should read '\\0'. Read: '%d' (char interpreted as int).\n", s_read[i]);
-  for (; i < 24; i++)
-    if (failed(s_read[i] == 'b'))
-      fprintf(stdout, "Should read 'b'. Read: '%c'.\n", s_read[i]);
-  const ssize_t len_final = 8 * 3;
-  __compare_file_to(file, s8B("a") s8B("\0") s8B("b"), len_final);
+  ssize_t len = strlen(s8B("a") s8B("0") s8B("b"));
+  __compare_file_to(file, s8B("a") s8B("\0") s8B("b"), len);
 }
 
-void write_sparse_ADCB(const char *file) {
-  fprintf(stdout, "--- Writing in a hole in a file. ---\n");
+void write_sparse_ABCD(const char *file) {
+  fprintf(stdout, "--- Writing A B C D. ---\n");
 
   ssize_t res;
   char   *s_write;
@@ -279,7 +268,7 @@ void write_sparse_ADCB(const char *file) {
   //write begin
   __initialize_file_to(file, s1KB("a") s1KB("a"));
 
-  const int fd_write = open_file(file, O_WRONLY); //position 2KB
+  const int fd_write = open_file(file, O_WRONLY);
 
   //create hole
   lseek(fd_write, v1KB * 14, SEEK_SET); //14KB

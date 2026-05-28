@@ -133,9 +133,9 @@ void print_diff_hybrid(
   size_t               len
 ) {
   printf("Offset | d | %-27s | %-26s\n", label_a, label_b);
-  printf("-------|---|-----------------------------|----------------------------\n");
-
   for (size_t i = 0; i < len; i += 8) {
+    if (i % 4096 == 0)
+      printf("--------------------------------block---------------------------------\n");
     size_t chunk     = ((len - i) < 8) ? (len - i) : 8;
     int    line_diff = 0;
 
