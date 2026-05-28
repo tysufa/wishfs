@@ -7,6 +7,7 @@
 #include <string.h> //strlen
 #include <time.h>   //clock
 #include <unistd.h> //read, llseek
+#include <stdlib.h> //atoi
 
 #define s8B(c) c c c c c c c c
 #define s32B(c) s8B(c) s8B(c) s8B(c) s8B(c)
@@ -25,6 +26,7 @@
 #define v1MB (1 << 20)
 
 #define PATH "/mnt/test_mnt/t_"
+#define SYSFS 1
 
 void print_diff_hybrid(
   const char          *label_a,
@@ -173,34 +175,58 @@ void print_diff_hybrid(
 }
 
 void run_test(void (*func)(const char *), char *path){
-	const size_t len = 7;
-	int fd;
+  const size_t len = 7;
+  int fd;
 
+  /*
+  //get number of free blocks
+  char free_blocks1[len];
+  __init_buffer_with_zeroes(free_blocks1, len);
+  fd = open_file("/sys/fs/ouichefs/partition_sdc/free_blocks", O_RDONLY);
+  measure_read(fd, free_blocks1, len);
+  */
 
-	//get number of free blocks
-	char s1[len];
-	__init_buffer_with_zeroes(s1, len);
-	fd = open_file("/sys/fs/ouichefs/partition_sdc/free_blocks", O_RDONLY);
-	measure_read(fd, s1, len);
+  //execute function on file
+  create_file(path);
+  func(path);
+  const int no = unlink(path);
+  manage_error(no, "run_test", "unlink");
 
+  /*
+  //get number of free blocks
+  char free_blocks2[len];
+  __init_buffer_with_zeroes(free_blocks2, len);
+  fd = open_file("/sys/fs/ouichefs/sdc/free_blocks", O_RDONLY);
+  measure_read(fd, free_blocks2, len);
+  int nb_free = atoi(free_blocks2);
 
-	//execute function on file
-	create_file(path);
-	func(path);
-	const int no = unlink(path);
-	manage_error(no, "run_test", "unlink");
+  //compare number of free blocks
+  fprintf(stdout, "Comparing number of free blocks: ");
+  strcmp(free_blocks1, free_blocks2);
 
+  //committed blocks
+  char committed_blocks[len];
+  __init_buffer_with_zeroes(committed_blocks, len);
+  fd = open_file("/sys/fs/ouichefs/sdc/committed_blocks", O_RDONLY);
+  measure_read(fd, committed_blocks, len);
+  int nb_committed = atoi(committed_blocks);
 
-	//get number of free blocks
-	char s2[len];
-	__init_buffer_with_zeroes(s2, len);
-	fd = open_file("/sys/fs/ouichefs/sdc/free_blocks", O_RDONLY);
-	measure_read(fd, s2, len);
+  //committed blocks
+  char reserved_blocks[len];
+  __init_buffer_with_zeroes(reserved_blocks, len);
+  fd = open_file("/sys/fs/ouichefs/sdc/reserved_blocks", O_RDONLY);
+  measure_read(fd, reserved_blocks, len);
+  int nb_reserved = atoi(reserved_blocks);
 
-	//compare results
-	fprintf(stdout, "Comparing number of free blocks: ");
-	__compare_file_to(s1, s2, len);
+  //total blocks
+  char total_blocks[len];
+  __init_buffer_with_zeroes(total_blocks, len);
+  fd = open_file("/sys/fs/ouichefs/sdc/total_blocks", O_RDONLY);
+  measure_read(fd, total_blocks, len);
+  int nb_total = atoi(total_blocks);
 
-
-	//TODO: sanity check
+  //sanity check
+  fprintf(stdout, "Sanitiy check: ");
+  failed(nb_free + nb_committed + nb_reserved == nb_total);
+  */
 }

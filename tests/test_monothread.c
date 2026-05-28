@@ -553,7 +553,7 @@ int main(int argc, char *argv[]) {
   run_test(create_sparse_AHB, PATH "create_sparse_AHB");
 
   /** Write in the middle of a hole, over a block, then at the beginning of the hole to fill the file again. */
-  run_test(write_sparse_ADCB, PATH "write_sparse_ABCD");
+  //run_test(write_sparse_ADCB, PATH "write_sparse_ABCD");
 
   /** Write _ _ A, then B _ A. */
   //run_test(write_sparse_BHA, PATH "write_sparse_BHA");

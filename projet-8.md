@@ -52,3 +52,10 @@ utilise la logique de bloc reservation pendant le remplissage des holes.
 
 # Remarques
 [comment]: <> (Vous pouvez rajouter ici tout ce qui vous paraît pertinent et qui n’apparaît pas dans les autres sections.)
+Les tests ont été réalisés de plusieurs manières :
+- test en ligne de commande au fil du développement,
+- tests dans des scipts C dédiés (ex: ioctl),
+- suite de tests C dans test_monothread.c (la majorité des tests s'y trouvent),
+- tests avec concurrence dans test_multithread.c (fonctionnalité 1.7).
+Les tests ont été réalisés indépendamment du développement (par des personnes différentes).
+Le code de test étant récurrent, il a été factorisé par des fonctions et macros.
