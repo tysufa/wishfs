@@ -119,7 +119,7 @@ void write_middle_simple(const char *file) {
   close_file(fd);
 
   //check final state
-  const char *s_final = s8B("a") s8B("B") s8B("c");
+  const char   *s_final   = s8B("a") s8B("B") s8B("c");
   const ssize_t len_final = strlen(s_final);
   __compare_file_to(file, s_final, len_final);
 }
@@ -156,7 +156,7 @@ void write_middle_several_blocks(const char *file) {
 
   //check final state
   //2KB x 'a' + 2KB x 'b' + 4KB x 'b' + 2KB x 'b' + 2KB x 'a'
-  const char *s_final = s1KB("a") s1KB("a") s4KB("b") s4KB("b") s1KB("a") s1KB("a");
+  const char   *s_final   = s1KB("a") s1KB("a") s4KB("b") s4KB("b") s1KB("a") s1KB("a");
   const ssize_t len_final = strlen(s_final);
   __compare_file_to(file, s_final, len_final);
 }
@@ -176,7 +176,7 @@ void write_at_end_append(const char *file) {
   close_file(fd_write);
 
   //check final state
-  const char *s_final = s8B("a") s8B("b");
+  const char   *s_final   = s8B("a") s8B("b");
   const ssize_t len_final = strlen(s_final);
   __compare_file_to(file, s_final, len_final);
 }
@@ -197,7 +197,7 @@ void write_at_end_no_append(const char *file) {
   close_file(fd_write);
 
   //check final state
-  const char *s_final = s8B("a") s8B("b");
+  const char   *s_final   = s8B("a") s8B("b");
   const ssize_t len_final = strlen(s_final);
   __compare_file_to(file, s_final, len_final);
 }
@@ -218,7 +218,7 @@ void write_over_end(const char *file) {
   close_file(fd_write);
 
   //check final state
-  const char *s_final = s8B("a") s8B("b") s8B("b");
+  const char   *s_final   = s8B("a") s8B("b") s8B("b");
   const ssize_t len_final = strlen(s_final);
   __compare_file_to(file, s_final, len_final);
 }
@@ -481,6 +481,12 @@ void write_sparse_AHhCChHB(const char *file) {
   len_write = strlen(s_write);
   res       = measure_write(fd_write, s_write, len_write);
 
+  //write C again
+  lseek(fd_write, v1KB * 4 * 3 + v1KB * 2, SEEK_SET);
+  s_write   = s4KB("c");
+  len_write = strlen(s_write);
+  res       = measure_write(fd_write, s_write, len_write);
+
   close_file(fd_write);
 
   const ssize_t len_final = v1KB * 4 * 7;
@@ -542,28 +548,28 @@ int main(int argc, char *argv[]) {
   run_test(create_sparse_AHB, PATH "create_sparse_AHB");
 
   /** Write in the middle of a hole, over a block, then at the beginning of the hole to fill the file again. */
-  //run_test(write_sparse_ADCB, PATH "write_sparse_ABCD");
+  run_test(write_sparse_ABCD, PATH "write_sparse_ABCD");
 
   /** Write _ _ A, then B _ A. */
-  //run_test(write_sparse_BHA, PATH "write_sparse_BHA");
+  run_test(write_sparse_BHA, PATH "write_sparse_BHA");
 
   /** Write A C _ _ B. */
-  //run_test(write_sparse_ACHHB, PATH "write_sparse_ACHHB");
+  run_test(write_sparse_ACHHB, PATH "write_sparse_ACHHB");
 
   /** Write A _ C _ B. */
-  //run_test(write_sparse_AHCHB, PATH "write_sparse_AHCHB");
+  run_test(write_sparse_AHCHB, PATH "write_sparse_AHCHB");
 
   /** Write A _ _ C B. */
-  //run_test(write_sparse_AHHCB, PATH "write_sparse_AHHCB");
+  run_test(write_sparse_AHHCB, PATH "write_sparse_AHHCB");
 
   /** Write A _ -c c- _ _ B. */
-  //run_test(write_sparse_AHhChHHB, PATH "write_sparse_AHhChHHB");
+  run_test(write_sparse_AHhChHHB, PATH "write_sparse_AHhChHHB");
 
   /** Write A _ -c C -c _ B. */
-  //run_test(write_sparse_AHhCChHB, PATH "write_sparse_AHhCChHB");
+  run_test(write_sparse_AHhCChHB, PATH "write_sparse_AHhCChHB");
 
   /** Write in a file then open it with O_TRUNC. */
-  //run_test(read_trunc_several_blocks, PATH "trunc");
+  run_test(read_trunc_several_blocks, PATH "trunc");
 
   return EXIT_SUCCESS;
 }
