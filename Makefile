@@ -37,7 +37,7 @@ ouichefs: kernel $(test_disk)
 	cp $(ouichefsdir)/ouichefs.ko $(share)
 	cp tests/* $(share)
 
-kernel: $(kconfig)
+kernel: $(kdir) $(kconfig)
 	time $(MAKE) -C $(kdir) -j$(nproc)
 
 $(kconfig):
@@ -74,6 +74,11 @@ $(mkfs):
 $(boot_disk):
 	wget https://etyloppihacilem.com/collection/pnl-tp-2021.img.xz
 	xz -d pnl-tp-2021.img.xz
+
+$(kdir):
+	wget https://etyloppihacilem.com/collection/linux-6.5.7.tar.xz
+	tar -xvf linux-6.5.7.tar.xz
+	rm linux-6.5.7.tar.xz
 
 compile_commands: clean
 	bear -- $(MAKE)

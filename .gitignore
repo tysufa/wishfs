@@ -9,3 +9,6 @@ compile_commands.json
 share
 share/**
 test2.img
+linux-6.5.7
+linux-6.5.7/**
+linux-6.5.7.tar.xz
