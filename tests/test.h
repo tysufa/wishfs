@@ -176,11 +176,13 @@ void run_test(void (*func)(const char *), char *path){
 	const size_t len = 7;
 	int fd;
 
+
 	//get number of free blocks
-	char s1[len1];
+	char s1[len];
 	__init_buffer_with_zeroes(s1, len);
 	fd = open_file("/sys/fs/ouichefs/partition_sdc/free_blocks", O_RDONLY);
-	measure_read(fd1, s1, len);
+	measure_read(fd, s1, len);
+
 
 	//execute function on file
 	create_file(path);
@@ -188,15 +190,17 @@ void run_test(void (*func)(const char *), char *path){
 	const int no = unlink(path);
 	manage_error(no, "run_test", "unlink");
 
+
 	//get number of free blocks
 	char s2[len];
 	__init_buffer_with_zeroes(s2, len);
-	fd = open_file("/sys/fs/ouichefs/partition_sdc/free_blocks", O_RDONLY);
+	fd = open_file("/sys/fs/ouichefs/sdc/free_blocks", O_RDONLY);
 	measure_read(fd, s2, len);
 
 	//compare results
 	fprintf(stdout, "Comparing number of free blocks: ");
 	__compare_file_to(s1, s2, len);
+
 
 	//TODO: sanity check
 }
