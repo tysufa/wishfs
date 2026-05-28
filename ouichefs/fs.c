@@ -103,6 +103,8 @@ struct dentry *ouichefs_mount(struct file_system_type *fs_type, int flags,
 	create_ouichefs_sysfs(&sbi->sysfs_attrs[10], dentry->d_sb,
 			      reserved_show, "reserved_blocks");
 
+	create_ouichefs_sysfs(&sbi->sysfs_attrs[11], dentry->d_sb,
+			      blocks_number_show, "blocks_number");
 	return dentry;
 
 failed_sysfs_kobject:

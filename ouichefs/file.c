@@ -8,7 +8,6 @@
 #include "linux/bitmap.h"
 #include "linux/minmax.h"
 #include "linux/mutex.h"
-#define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/module.h>
 #include <linux/kernel.h>

@@ -597,5 +597,17 @@ static ssize_t reservation_size_show(struct kobject *kobj,
 	return sysfs_emit(buf, "Reservation size : %d\n", reservation_size);
 }
 
+// Renvoie la taille de reservation du write
+static ssize_t blocks_number_show(struct kobject *kobj,
+				  struct kobj_attribute *attr, char *buf)
+{
+	struct custom_attribute *attributes =
+		container_of(attr, struct custom_attribute, attr);
+
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(attributes->sb);
+
+	pr_info("Total number of blocks : %d\n", sbi->nr_blocks);
+	return sysfs_emit(buf, "%d\n", sbi->nr_blocks);
+}
+
 struct kobject *ouichefs_kobj;
-struct kobject *partition_kobj;
