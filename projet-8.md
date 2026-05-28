@@ -17,12 +17,12 @@ Algo pour read:
     - On libère notre bloc d'index
 
 Algo pour write:
-    - On ouvre le block d'index de notre inode
-    - On boucle jusqu'à avoir tout lu (count == 0), on être revenu plus tôt à cause d'une erreur
-        - à chaque tour de boucle on calcul le numéro du bloc à lire et l'offset en fonction de ppos
-        - On sb_bread le bloc actuel, puis on copie dans le buffer utilisateur les datas du bloc en prenant en compte l'offset
-        - On libère notre bloc, puis on update ppos, count et le nombre d'octets lus
-    - On libère notre bloc d'index
+    - Si on est en mode `O_APPEND` on place `ppos` à la fin du fichier (`file->f_inode->i_size`)
+    - On récupère l'index de l'inode et on le lit
+    - On calcul le bloc à modifier et l'offset en fonction de `ppos`
+    - On récupère le bloc dans l'index, si le bloc vaut 0, alors on à pas de blocs disponibles pour l'écriture, donc on récupère un bloc libre (`get_free_block`) et on écrit le numéro du bloc récupéré dans le bloc d'index. ensuite on écrit que le bloc est dirty et on le synchronise.
+    - On lit le bloc obtenu, et on copy les données de l'utilisateur dans le buffer du bloc, puis on l'écrit dirty et on le synchronise
+    - Enfin on update `ppos`, count, etc. Puis si ppos est plus grand que `file->f_inode->i_size`, alors il faut update la taille du fichier
 
 
 ## 1.3 Extent-based index block (1.4 read ; 1.5 write)
