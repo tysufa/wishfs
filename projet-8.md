@@ -8,6 +8,22 @@ Projet PNL du groupe 8
 
 ## 1.2 Reimplementation of the read and the write functions
 Testé et fonctionnel, suppression des autres moyens d'iterragir avec le fs.
+Algo pour read:
+    - On ouvre le block d'index de notre inode
+    - On boucle jusqu'à avoir tout lu (count == 0), on être revenu plus tôt à cause d'une erreur
+        - à chaque tour de boucle on calcul le numéro du bloc à lire et l'offset en fonction de ppos
+        - On sb_bread le bloc actuel, puis on copie dans le buffer utilisateur les datas du bloc en prenant en compte l'offset
+        - On libère notre bloc, puis on update ppos, count et le nombre d'octets lus
+    - On libère notre bloc d'index
+
+Algo pour write:
+    - On ouvre le block d'index de notre inode
+    - On boucle jusqu'à avoir tout lu (count == 0), on être revenu plus tôt à cause d'une erreur
+        - à chaque tour de boucle on calcul le numéro du bloc à lire et l'offset en fonction de ppos
+        - On sb_bread le bloc actuel, puis on copie dans le buffer utilisateur les datas du bloc en prenant en compte l'offset
+        - On libère notre bloc, puis on update ppos, count et le nombre d'octets lus
+    - On libère notre bloc d'index
+
 
 ## 1.3 Extent-based index block (1.4 read ; 1.5 write)
 Testé et fonctionnel, rajoute bien les blocs à l'extent précédente s'ils se suivent.
@@ -49,6 +65,10 @@ utilise la logique de bloc reservation pendant le remplissage des holes.
 - Testé et fonctionnel
 - Pas complètement fonctionnel (bug, etc..), dans ce cas, précisez les problèmes
 - Non traité
+Non traité
+
+## 1.11 MEGA Bonus: advanced block allocator
+Non traité
 
 # Remarques
 [comment]: <> (Vous pouvez rajouter ici tout ce qui vous paraît pertinent et qui n’apparaît pas dans les autres sections.)
