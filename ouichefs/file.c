@@ -125,11 +125,11 @@ static long get_extents(struct file *file, long force)
 
 		if (count <= 1)
 			printk(KERN_INFO
-			       "  [%u] start=%u count=%u (extent %u)\n",
+			       "  [%u] start=%u count=%u (block %u)\n",
 			       i, start, count, start);
 		else
 			printk(KERN_INFO
-			       "  [%u] start=%u count=%u (extents %u-%u)\n",
+			       "  [%u] start=%u count=%u (blocks %u-%u)\n",
 			       i, start, count, start, start + count - 1);
 		i++;
 	}
@@ -150,51 +150,64 @@ static uint32_t write_in_hole(struct ouichefs_extent *extents,
 		block_number -= extents[i].count;
 		i++;
 	}
-	uint8_t next_extent =
+	uint16_t next_extent =
 		i ? (extents[i - 1].start ?
 			     (extents[i - 1].start + extents[i - 1].count) :
 			     0) :
 		    0;
-	if (i && next_extent == futur_block)
-		return i; // no change, will automatically be added to previous extent
 	hole_before = block_number;
 	hole_after = extents[i].count - (block_number + 1);
-	// at least one extent to add
-	uint8_t shift = (hole_before > 0 ? 1 : 0) + (hole_after > 0 ? 1 : 0);
-	if (shift == 0)
-		goto shift_done;
-	// if (i + shift >= OUICHEFS_MAX_EXTENTS)
-	// 	return NULL; // no space
-	// 	// will be verified just next
-	uint16_t last = i;
-	while (last < OUICHEFS_MAX_EXTENTS && extents[last].count)
-		last++;
-	if (last == 0 || last + shift - 1 >= OUICHEFS_MAX_EXTENTS) {
-		pr_err("Could not fill hole because no more extents are available.\n");
-		return -ENOSPC; // no space
-	}
-	last--;
-	while (shift && last > i) {
-		extents[last + shift].start = extents[last].start;
-		extents[last + shift].count = extents[last].count;
+		futur_block);
+		if (i && next_extent == futur_block) {
+			if (--extents[i].count == 0) {
+				extents[i].count = 1; // will be replaced
+				uint16_t j = i;
+				while (j < OUICHEFS_MAX_EXTENTS &&
+				       extents[j].count != 0) {
+					extents[j].count = extents[j + 1].count;
+					extents[j].start = extents[j + 1].start;
+					j++;
+				} // si on doit supprimer le trou
+			}
+			return i; // no change, will automatically be added to previous extent
+		}
+		// at least one extent to add
+		uint8_t shift =
+			(hole_before > 0 ? 1 : 0) + (hole_after > 0 ? 1 : 0);
+		if (shift == 0)
+			goto shift_done;
+		// if (i + shift >= OUICHEFS_MAX_EXTENTS)
+		// 	return NULL; // no space
+		// 	// will be verified just next
+		uint16_t last = i;
+		while (last < OUICHEFS_MAX_EXTENTS && extents[last].count)
+			last++;
+		if (last == 0 || last + shift - 1 >= OUICHEFS_MAX_EXTENTS) {
+			pr_err("Could not fill hole because no more extents are available.\n");
+			return -ENOSPC; // no space
+		}
 		last--;
-	}
-	if (!hole_before && hole_after) {
-		extents[last + 1].start = extents[last].start;
-		extents[last + 1].count = extents[last].count;
-	}
-	if (hole_before) {
-		extents[i].count = hole_before;
-		extents[i].start = 0;
-	}
-	if (hole_after) {
-		extents[i + shift].count = hole_after;
-		extents[i + shift].start = 0;
-	}
-	extents[hole_before ? i + 1 : i].count = 0;
-	extents[hole_before ? i + 1 : i].start = 0;
+		while (shift && last > i) {
+			extents[last + shift].start = extents[last].start;
+			extents[last + shift].count = extents[last].count;
+			last--;
+		}
+		if (!hole_before && hole_after) {
+			extents[last + 1].start = extents[last].start;
+			extents[last + 1].count = extents[last].count;
+		}
+		if (hole_before) {
+			extents[i].count = hole_before;
+			extents[i].start = 0;
+		}
+		if (hole_after) {
+			extents[i + shift].count = hole_after;
+			extents[i + shift].start = 0;
+		}
+		// extents[hole_before ? i + 1 : i].count = 0;
+		// extents[hole_before ? i + 1 : i].start = 0;
 shift_done:
-	return 1;
+	return hole_before ? i + 1 : i;
 }
 
 static int ouichefs_open(struct inode *inode, struct file *file)
@@ -450,13 +463,10 @@ ssize_t ouichefs_write(struct file *file, const char __user *buffer,
 			i++; // i se trouve sur la prochaine extent de libre
 		if (i >= OUICHEFS_MAX_EXTENTS)
 			goto release_physical_index;
-		if (i != 0)
-			i--;
 		if (i != 0 && extents[i - 1].start == 0)
 			i--;
 		extents[i].start = 0;
 		extents[i].count = void_blocks;
-		pr_info("Added %u void_blocks at [%u]\n", void_blocks, i);
 		DEC_NR(void_blocks);
 	}
 
@@ -486,7 +496,6 @@ write_data:
 			// }
 			physical_block_number = 0;
 		} else if (physical_block_number) {
-			pr_info("Using block %u\n", physical_block_number);
 			goto block_number_found;
 		}
 
@@ -544,9 +553,11 @@ write_data:
 
 		file->f_inode->i_blocks += new_count;
 		SET_ALLOC;
-		i = 0;
+		i = fill ? OUICHEFS_MAX_EXTENTS : 0; // skip
 		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
 			i++; // i se trouve sur la prochaine extent de libre
+		if (fill)
+			i = fill;
 		next_extent = i ? (extents[i - 1].start ?
 					   (extents[i - 1].start +
 					    extents[i - 1].count) :
