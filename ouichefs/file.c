@@ -138,6 +138,12 @@ static long get_extents(struct file *file, long force)
 	return 0;
 }
 
+#define ISSET_FILL(fill) ((fill) & (1 << 30))
+#define ISERR_FILL(fill) ((fill) & (1 << 31))
+#define GET_FILL(fill) ((fill) & ~((1 << 31) | (1 << 30)))
+#define ERR_FILL(fill) ((fill) & ~((1 << 30)))
+#define SET_FILL(fill) ((fill) | 1 << 30)
+
 static uint32_t write_in_hole(struct ouichefs_extent *extents,
 			      uint32_t block_number, uint32_t futur_block)
 {
@@ -168,7 +174,8 @@ static uint32_t write_in_hole(struct ouichefs_extent *extents,
 				j++;
 			} // si on doit supprimer le trou
 		}
-		return i; // no change, will automatically be added to previous extent
+		return SET_FILL(
+			i); // no change, will automatically be added to previous extent
 	}
 	// at least one extent to add
 	uint8_t shift = (hole_before > 0 ? 1 : 0) + (hole_after > 0 ? 1 : 0);
@@ -205,7 +212,7 @@ static uint32_t write_in_hole(struct ouichefs_extent *extents,
 	// extents[hole_before ? i + 1 : i].count = 0;
 	// extents[hole_before ? i + 1 : i].start = 0;
 shift_done:
-	return hole_before ? i + 1 : i;
+	return SET_FILL(hole_before ? i + 1 : i);
 }
 
 static int ouichefs_open(struct inode *inode, struct file *file)
@@ -540,22 +547,22 @@ write_data:
 		if (fill) { // si on doit fill un hole
 			fill = write_in_hole(extents, logical_block_nb,
 					     physical_block_number);
-			if (fill & (1 << 31)) {
+			if (ISERR_FILL(fill)) {
 				pr_err("Could not split hole open. No space.");
 				put_block(sbi,
 					  le32_to_cpu(physical_block_number));
-				bytes_written = fill; // error number
+				bytes_written = ERR_FILL(fill); // error number
 				goto release_physical_index;
 			}
 		}
 
 		file->f_inode->i_blocks += new_count;
 		SET_ALLOC;
-		i = fill ? OUICHEFS_MAX_EXTENTS : 0; // skip
+		i = ISSET_FILL(fill) ? OUICHEFS_MAX_EXTENTS : 0; // skip
 		while (i < OUICHEFS_MAX_EXTENTS && extents[i].count)
 			i++; // i se trouve sur la prochaine extent de libre
-		if (fill)
-			i = fill;
+		if (ISSET_FILL(fill))
+			i = GET_FILL(fill);
 		next_extent = i ? (extents[i - 1].start ?
 					   (extents[i - 1].start +
 					    extents[i - 1].count) :
