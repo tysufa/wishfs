@@ -1,8 +1,18 @@
 Projet PNL du groupe 8
 ======================
 
+# Comment lancer notre projet :
+
+```bash
+make
+./qemu-run-externKernel.sh
+# dans la machine virtuelle
+bash /share/run_tests.sh
+```
+
+
 # Architecture de la solution
-[comment]: <> (1 ou 2 paragraphes qui expliquent vite fait vos choix d’implémentation et de design.)
+Nous avons essayé de prendre les choix les plus cohérent possibles pour limiter la fragmentation. Nous serons ravis de vous en parler davantage lors de la soutenance, mais il est bientôt 5h du matin et il faut faire dormir les yeux...
 
 # Travail réalisé
 
@@ -58,7 +68,7 @@ Pour pouvoir récupérer le super block dans nos fonctions show, on à créé un
 Nous avons intégré la liste des custom struct (donc qui contient les attributs de chaque fonction sysfs) dans ouichefs_sb_info en tant que tableau statique, pour pouvoir y accéder depuis la partition actuelle
 De même on à ajouté un kobj à notre ouichefs_sb_info pour séparer nos fonctions de nos partitions
 
-Les sysfs les plus complexes sont ceux qui doivent traiter les extents : 
+Les sysfs les plus complexes sont ceux qui doivent traiter les extents :
 - On doit flush toutes nos inodes dirty en mémoire avant de commencer à itérer
 - Ensuite on parcours toutes les inodes du disque depuis l'inode store
 - On vérifie si on est sur un fichier ou un dossier selon le cas à traiter, puis on récupère l'index de notre inode
@@ -74,6 +84,7 @@ Testé et fonctionnel, lis bien des 0 alors qu'aucun bloc physique n'a été all
 ## 1.9 Sparse files and holes (write in hole)
 Testé et fonctionnel
 utilise la logique de bloc reservation pendant le remplissage des holes.
+évite la fragmentation alors qu'elle n'est pas nécessaire lorsqu'on peut incrémenter le count d'un bloc précédant un vide.
 
 ## 1.10 Bonus: File defragmentation
 - Testé et fonctionnel
