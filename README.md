@@ -1,5 +1,16 @@
 # Projet PNL — Image and Kernel Build
 
+Ce projet vise à modifier le système de fichiers [ouichefs](https://github.com/rgouicem/ouichefs). Dans sa version initiale, la taille des fichiers est limitée à 4 Mo en raison du fonctionnement de l'index block. L'objectif de **wishfs** est de permettre une taille de fichier virtuellement infinie, au prix d'une empreinte potentiellement plus importante en cas de forte fragmentation.
+
+Actuellement les fichiers stockent le contenus de la façon suivante (voir le [readme](./ouichefs/README.md) de ouichefs pour plus de détails):
+![file block](./ouichefs/docs/file_block.png)
+
+L'objectif de ce projet est de faire évoluer ce stockage vers l'architecture suivante :
+
+![file block](./ouichefs/docs/wishfs_file_block.png)
+
+## Installer et utiliser wishfs
+
 Ce dépôt contient des outils et un arbre Linux préconfiguré pour assembler :
 - un noyau Linux local (dans `linux-6.5.7`),
 - un module/utilitaire `ouichefs` (sous `ouichefs/`),
@@ -56,13 +67,6 @@ Structure importante
 - [ouichefs](ouichefs) : code utilisateur pour le système de fichiers et outils de création d'image.
 - `Makefile` : orchestration principale pour construire noyau, outils et images.
 
-Contribuer
-- Ouvrez une issue pour proposer des améliorations ou signaler des problèmes.
-- Privilégiez des commits petits et ciblés ; documentez toute nouvelle variable du `Makefile`.
-
 Licence
 - Voir le fichier de licence du noyau `linux-6.5.7/COPYING` pour les composants du noyau.
 - Les composants utilisateurs (ex. `ouichefs`) contiennent leurs propres mentions de licence dans leurs répertoires.
-
-Contact
-- Auteur / Mainteneur : voir le dépôt ou contactez l'équipe PNL.
