@@ -1,4 +1,6 @@
-# Projet PNL — Image and Kernel Build
+# Projet Wishfs
+
+## Objectif
 
 Ce projet vise à modifier le système de fichiers [ouichefs](https://github.com/rgouicem/ouichefs). Dans sa version initiale, la taille des fichiers est limitée à 4 Mo en raison du fonctionnement de l'index block. L'objectif de **wishfs** est de permettre une taille de fichier virtuellement infinie, au prix d'une empreinte potentiellement plus importante en cas de forte fragmentation.
 
