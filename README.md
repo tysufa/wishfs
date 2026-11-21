@@ -1,74 +1,111 @@
-# Projet Wishfs
+# Wishfs
 
-## Objectif
+## About
 
-Ce projet vise à modifier le système de fichiers [ouichefs](https://github.com/rgouicem/ouichefs). Dans sa version initiale, la taille des fichiers est limitée à 4 Mo en raison du fonctionnement de l'index block. L'objectif de **wishfs** est de permettre une taille de fichier virtuellement infinie, au prix d'une empreinte potentiellement plus importante en cas de forte fragmentation.
+**Wishfs** is a modified version of the [ouichefs](https://github.com/rgouicem/ouichefs) Linux filesystem. In the original implementation, individual file sizes are capped at 4 MB due to the design of the index block. Wishfs removes this limitation by introducing an extent-based storage layout to support virtually infinite file sizes, trading off storage capacity under heavy fragmentation and raw I/O performance.
 
-Actuellement les fichiers stockent le contenus de la façon suivante (voir le [readme](./ouichefs/README.md) de ouichefs pour plus de détails):
-![file block](./ouichefs/docs/file_block.png)
+This repository provides a reproducible build environment containing a preconfigured Linux kernel tree, the filesystem module, and utilities to generate and test disk images.
 
-L'objectif de ce projet est de faire évoluer ce stockage vers l'architecture suivante :
+### Repository Structure
+* `ouichefs` - Filesystem source code, test suites, and image-creation utilities (see directory for component licenses).
+* `Makefile` - Main build orchestration for the kernel, filesystem tools, and test images.
+* `tests` - bash scripts to setup the filesystem and C programs to test the I/O operations
 
-![file block](./ouichefs/docs/wishfs_file_block.png)
+---
 
-## Installer et utiliser wishfs
+## How It Works
 
-Ce dépôt contient des outils et un arbre Linux préconfiguré pour assembler :
-- un noyau Linux local (dans `linux-6.5.7`),
-- un module/utilitaire `ouichefs` (sous `ouichefs/`),
-- des images disque de test (ex. `test.img`, `myHome.img`, `pnl-tp-2021.img`).
+In the original `ouichefs` architecture, a file's data blocks are tracked as a flat list of individual block numbers stored inside a single fixed-size index block (see the [ouichefs README](./ouichefs/README.md) for full details):
 
-Objectif
-- Fournir un environnement reproductible pour construire un noyau et générer des images de fichiers.
+![Original file block architecture](./ouichefs/docs/file_block.png)
 
-Prérequis
-- GNU make, gcc et outils de compilation pour le noyau.
-- `dd`, `xz`, `cp`, `mkfs.ext4`, `tune2fs`.
-- Utilitaire `ouichefs` (le binaire de création d'image est produit par `make` dans `ouichefs/mkfs`).
+**Wishfs** replaces this flat list with an **extent-based implementation**:
 
-Principaux targets (dans la racine)
-- `make` — construit `kernel`, `ouichefs` et les images (`test.img`, `myHome.img`, `pnl-tp-2021.img`) selon les règles du `Makefile`.
-- `make kernel` — lance la compilation du noyau en utilisant l'arbre `linux-6.5.7`.
-- `make ouichefs` — construit la partie `ouichefs` (dépend du noyau si nécessaire).
-- `make clean` — nettoie la compilation noyau et supprime les images temporaires.
+![Wishfs file block architecture](./ouichefs/docs/wishfs_file_block.png)
 
-Variables configurables
-- `nproc` (valeur par défaut : résultat de `nproc`) — nombre de jobs parallèles pour `make -j`.
-- `kdir` (par défaut `./linux-6.5.7`) — chemin vers l'arbre source du noyau.
-- `ouichefsdir` — chemin vers le sous-projet `ouichefs`.
-- `test_disk`, `home_disk`, `boot_disk` — noms des images générées.
+Instead of storing every individual block pointer, each entry in the index block is a struct containing:
+1. **The starting block number** of a contiguous sequence.
+2. **The number of contiguous blocks** that follow it.
 
-Exemples d'utilisation
+When files are written contiguously, a single extent entry can represent a large span of data, allowing a single index block to address virtually unlimited file sizes.
 
-Construire tout (par défaut) :
+---
+
+## Known Limitations
+
+* **Reduced I/O Performance (No Page Cache):** Because Wishfs relies on custom `read` and `write` implementations, file operations bypass the Linux kernel's page cache, significantly limiting read/write throughput.
+* **Worst-Case Fragmentation Cap (2 MB):** Storing both a starting block number and a length doubles the size of each entry in the index block, halving the maximum number of entries it can hold. In the worst-case scenario where every extent is only 1 block long the maximum file size drops to half of the original `ouichefs` limit, capping out at **2 MB**.
+
+---
+
+## Prerequisites & Installation
+
+### Prerequisites
+Ensure the following tools and packages are installed on your build machine:
+* **Build toolchain:** GNU `make`, `gcc`, and standard Linux kernel compilation dependencies.
+* **Disk & archive utilities:** `dd`, `xz`, `cp`, `mkfs.ext4`, and `tune2fs`.
+* **Filesystem formatter:** The `mkfs.ouichefs` binary (automatically compiled when building `ouichefs` via `make`).
+
+### Building the Project
+Clone the repository and run `make` from the root directory to compile the kernel, build the `ouichefs` module/tools, and generate the default disk images (`test.img`, `myHome.img`, and `pnl-tp-2021.img`):
 
 ```sh
 make
 ```
 
-Construire uniquement le noyau avec 8 jobs :
+---
+
+## Usage & Configuration
+
+### Make Targets
+
+Run these commands from the repository root:
+
+* `make` — Builds the kernel, `ouichefs` module/tools, and all disk images.
+* `make kernel` — Compiles the Linux kernel inside `linux-6.5.7`.
+* `make ouichefs` — Builds the `ouichefs` kernel module and user-space utilities.
+* `make clean` — Cleans kernel build artifacts and removes temporary disk images.
+
+### Configurable Variables
+
+You can override the following `Makefile` variables via the command line:
+
+* `nproc` *(default: output of `nproc`)* — Number of parallel jobs passed to `make -j`.
+* `kdir` *(default: `./linux-6.5.7`)* — Path to the Linux kernel source tree.
+* `ouichefsdir` — Path to the `ouichefs` subproject directory.
+* `test_disk`, `home_disk`, `boot_disk` — Custom filenames for the generated disk images.
+
+### Build Examples
+
+Build only the kernel using 8 parallel jobs:
 
 ```sh
 make kernel nproc=8
+
 ```
 
-Générer uniquement l'image de test (utilise le binaire `ouichefs/mkfs/mkfs.ouichefs`) :
+Generate only the test disk image using `ouichefs/mkfs/mkfs.ouichefs`:
 
 ```sh
 make test.img
+
 ```
 
-Nettoyer la construction du noyau :
+Clean build files and temporary images:
 
 ```sh
 make clean
+
 ```
 
-Structure importante
-- [linux-6.5.7](linux-6.5.7) : arbre source du noyau fourni (voir COPYING et README du noyau).
-- [ouichefs](ouichefs) : code utilisateur pour le système de fichiers et outils de création d'image.
-- `Makefile` : orchestration principale pour construire noyau, outils et images.
+---
 
-Licence
-- Voir le fichier de licence du noyau `linux-6.5.7/COPYING` pour les composants du noyau.
-- Les composants utilisateurs (ex. `ouichefs`) contiennent leurs propres mentions de licence dans leurs répertoires.
+## Testing
+
+1. **Boot the VM:** Launch the QEMU environment with your newly compiled kernel and disk images using the provided script on the host machine:
+```sh
+./qemu-run-externKernel.sh
+```
+*(This exposes the test disk image as `/dev/sdc` and mounts the shared project directory at `/share` inside the guest VM.)*
+
+2. **Run the Test Suite:** Once logged into the VM, execute the test script located in `/share/run_tests.sh` (or run the commands manually) to load the module, mount the filesystem, and run the single-threaded, multi-threaded, and `ioctl` tests. (you can inspect and modify this script in `tests/run_tests.sh`) 
